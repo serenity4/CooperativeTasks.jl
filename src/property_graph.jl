@@ -4,6 +4,8 @@ struct PropertyGraph{T,G<:AbstractGraph{T},V,E} <: AbstractGraph{T}
   edge_properties::BijectiveMapping{Edge{T},E}
 end
 
+PropertyGraph{T,G,V,E}() where {T,G,V,E} = PropertyGraph{T,G,V,E}(G(), BijectiveMapping{T,V}(), BijectiveMapping{Edge{T},E}())
+
 @forward PropertyGraph.graph (Base.eltype, Graphs.edges, Graphs.edgetype, Graphs.has_edge, Graphs.has_vertex, Graphs.inneighbors, Graphs.ne, Graphs.nv, Graphs.outneighbors, Graphs.vertices, Graphs.is_directed)
 
 function Graphs.add_edge!(p::PropertyGraph{<:Any,<:Any,<:Any,E}, edge::E) where {E}
