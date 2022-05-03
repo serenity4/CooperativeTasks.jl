@@ -1,8 +1,7 @@
 struct Thread
   task::Task
+  Thread(f) = new(Task(f))
 end
-
-Thread(f) = Thread(Task(f))
 
 struct Channel
   send::Base.Channel{Any}

@@ -8,6 +8,10 @@ include("bijection.jl")
 include("property_graph.jl")
 include("concurrency.jl")
 
-export PropertyGraph, BijectiveMapping, Thread
+export BijectiveMapping,
+  PropertyGraph,
+  index,
+  property,
+  Thread
 
 end

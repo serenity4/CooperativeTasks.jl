@@ -2,5 +2,6 @@ using ConcurrencyGraph
 using Test
 
 @testset "ConcurrencyGraph.jl" begin
-    # Write your tests here.
+  include("bijection.jl")
+  include("property_graph.jl")
 end
