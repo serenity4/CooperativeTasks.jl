@@ -2,6 +2,7 @@ module ConcurrencyGraph
 
 using Graphs
 using Dictionaries
+using Base: RefValue
 
 include("forward.jl")
 include("bijection.jl")
@@ -12,6 +13,7 @@ export BijectiveMapping,
   PropertyGraph,
   index,
   property,
-  Thread
+  Thread,
+  ThreadGraph
 
 end

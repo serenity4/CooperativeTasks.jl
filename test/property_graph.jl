@@ -13,10 +13,16 @@ Graphs.dst(edge::LabeledEdge) = edge.dst
   @test nv(g) == 0
   @test add_vertex!(g, :a)
   @test nv(g) == 1
+  @test has_vertex(g, :a)
+  @test !has_vertex(g, :b)
   @test add_vertex!(g, :b)
   @test !add_vertex!(g, :b)
   @test nv(g) == 2
   @test add_edge!(g, LabeledEdge(:a, :b))
+  @test has_edge(g, LabeledEdge(:a, :b))
+  @test has_edge(g, :a, :b)
+  @test !has_edge(g, LabeledEdge(:does_not, :exist))
+  @test !has_edge(g, :does_not, :exist)
   @test !add_edge!(g, LabeledEdge(:a, :b))
   @test !add_edge!(g, LabeledEdge(:does_not, :exist))
   @test ne(g) == 1
@@ -33,4 +39,8 @@ Graphs.dst(edge::LabeledEdge) = edge.dst
   @test add_vertex!(g, :a)
   @test rem_vertex!(g, :a)
   @test !rem_edge!(g, LabeledEdge(:a, :b))
+
+  @test add_vertex!(g, :a)
+  @test add_edge!(g, :a, :b)
+  @test has_edge(g, :a, :b)
 end
