@@ -62,6 +62,10 @@ Graphs.has_vertex(p::PropertyGraph{<:Any,<:Any,V}, vertex::V) where {V} = haskey
 
 property(p::PropertyGraph{T}, vertex::T) where {T} = p.vertex_properties[vertex]
 property(p::PropertyGraph, edge::Edge) = p.edge_properties[edge]
-property(p::PropertyGraph, src, dst) = p.edge_properties[Edge(src, dst)]
+property(p::PropertyGraph{T}, src::T, dst::T) where {T} = p.edge_properties[Edge(src, dst)]
+property(p::PropertyGraph{<:Any,<:Any,V}, src::V, dst::V) where {V} = property(p, index(p, src), index(p, dst))
 index(p::PropertyGraph{<:Any,<:Any,V}, vertex::V) where {V} = p.vertex_properties[vertex]
 index(p::PropertyGraph{<:Any,<:Any,<:Any,E}, edge::E) where {E} = p.edge_properties[edge]
+
+vertex_properties(p::PropertyGraph) = values(p.vertex_properties)
+edge_properties(p::PropertyGraph) = values(p.edge_properties)

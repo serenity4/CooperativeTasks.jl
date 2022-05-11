@@ -3,6 +3,9 @@ module ConcurrencyGraph
 using Graphs
 using Dictionaries
 using Base: RefValue
+using UUIDs: uuid5, UUID
+
+uuid() = uuid5()
 
 include("forward.jl")
 include("bijection.jl")
@@ -14,6 +17,12 @@ export BijectiveMapping,
   index,
   property,
   Thread,
-  ThreadGraph
+  ThreadGraph,
+  ExecutionMode,
+  LoopExecution,
+  cancel,
+  thread_graph,
+  current_thread,
+  threads
 
 end
