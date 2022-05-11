@@ -23,6 +23,7 @@ Graphs.dst(edge::LabeledEdge) = edge.dst
   @test has_edge(g, :a, :b)
   @test !has_edge(g, LabeledEdge(:does_not, :exist))
   @test !has_edge(g, :does_not, :exist)
+  @test !has_edge(g, :b, :a)
   @test !add_edge!(g, LabeledEdge(:a, :b))
   @test !add_edge!(g, LabeledEdge(:does_not, :exist))
   @test ne(g) == 1

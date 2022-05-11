@@ -30,29 +30,36 @@ Directed communication link from `src` to `dst`.
 struct Channel
   src::Thread
   dst::Thread
-  send::Base.Channel{Any}
-  recv::Base.Channel{Any}
+  channel::Base.Channel{Any}
 end
 
-Channel(src, dst, size = Inf) = Channel(src, dst, Base.Channel{Any}(size), Base.Channel{Any}(size))
-function Base.close(ch::Channel)
-  close(ch.send)
-  close(ch.recv)
-end
+@forward Channel.channel (Base.isready, Base.close)
+
+Channel(src::Thread, dst::Thread, size::Real = Inf) = Channel(src, dst, Base.Channel{Any}(size))
 
 Graphs.src(ch::Channel) = ch.src
 Graphs.dst(ch::Channel) = ch.dst
 
-const ThreadGraph = PropertyGraph{Int,SimpleGraph{Int},Thread,Channel}
+const ThreadGraph = PropertyGraph{Int,SimpleDiGraph{Int},Thread,Channel}
 
 function thread_graph()
   g = ThreadGraph()
-  add_vertex!(g, Thread(current_task(), g))
-  g
+  th = Thread(current_task(), g)
+  add_vertex!(g, th)
+  finalizer(g) do x
+    for dst in vertex_properties(x)
+      @async shutdown(th, dst)
+    end
+  end
 end
+
 thread(g::ThreadGraph, idx::Integer) = property(g, convert(Int, idx))
 threads(g::ThreadGraph) = vertex_properties(g)
-channel(src::Thread, dst::Thread) = property(thread_graph(src), src, dst)
+function channel(src::Thread, dst::Thread)
+  g = thread_graph(src)
+  add_edge!(g, src, dst)
+  property(g, src, dst)
+end
 
 Thread(task::Task, g::ThreadGraph) = set_task(Thread(g), task)
 
@@ -64,35 +71,36 @@ end
 thread_graph(th::Thread) = th.g::ThreadGraph
 thread_graph(ch::Channel) = thread_graph(ch.src)
 
-function channels(th::Thread)
+function incoming_channels(th::Thread)
   g = thread_graph(th)
   Channel[channel(thread(g, src), th) for src in inneighbors(g, index(g, th))]
 end
 
-send(dst::Thread, v) = send(current_thread(), dst, v)
-
-function send(src::Thread, dst::Thread, v)
-  g = thread_graph(src)
-  has_edge(g, src, dst) || error("No communication channel established between $src and $dst.")
-  put!(channel(src, dst).send, v)
+function outgoing_channels(th::Thread)
+  g = thread_graph(th)
+  Channel[channel(th, thread(g, dst)) for dst in outneighbors(g, index(g, th))]
 end
 
-receive(src::Thread) = receive(src, current_thread())
+"Send a message `v` from the current thread to `th`."
+send(th::Thread, v) = send(current_thread(thread_graph(th)), th, v)
+"Send a message `v` from `src` to `dst`."
+send(src::Thread, dst::Thread, v) = send(channel(src, dst), v)
+send(ch::Channel, v) = put!(ch.channel, v)
 
-function receive(src::Thread, dst::Thread)
-  g = thread_graph(src)
-  has_edge(g, src, dst) || error("No communication channel established between $src and $dst.")
-  take!(Channel(g, src, dst))
-end
+"Receive a message on the current thread from `th`."
+receive(th::Thread) = receive(current_thread(thread_graph(th)), th)
+"Receive a message on `src` from `dst`."
+receive(src::Thread, dst::Thread) = receive(channel(dst, src))
+receive(ch::Channel) = take!(ch.channel)
 
 function shutdown(src::Thread, dst::Thread)
-  g = thread_graph(src)
-  isdefined(th.taskref) || return true
-  task = th.taskref[]
+  isdefined(dst.taskref, 1) || return true
+  task = dst.taskref[]
   !istaskstarted(task) && return true
   istaskdone(task) && return true
-  cancel(g, src, dst)
+  cancel(src, dst)
 end
+shutdown(dst::Thread) = shutdown(current_thread(thread_graph(dst)), dst)
 
 struct Cancel end
 
@@ -101,6 +109,7 @@ function cancel(src::Thread, dst::Thread; timeout = 2)
   send(src, dst, Cancel())
   wait_timeout(task, timeout)
 end
+cancel(th::Thread; timeout = 2) = cancel(current_thread(thread_graph(th)), th; timeout)
 
 function interrupt(task::Task, timeout::Real)
   Base.throwto(task, InterruptException())
@@ -124,12 +133,14 @@ First, the command is registered on a source thread with a corresponding UUID. T
 struct Command
   uuid::UUID
   f::Any
+  args::Any
+  kwargs::Any
   src::Thread
   dst::Thread
   continuation::Any
 end
 
-Command(f, dst; src = current_thread(), continuation = nothing) = Command(uuid(), f, src, dst, continuation)
+Command(f, dst, args...; src = current_thread(thread_graph(dst)), continuation = nothing, kwargs...) = Command(uuid(), f, args, kwargs, src, dst, continuation)
 
 function current_thread(g::ThreadGraph)
   ths = threads(g)
@@ -140,17 +151,17 @@ function current_thread(g::ThreadGraph)
 end
 
 function execute(command::Command)
-  !isnothing(command.continuation) && insert!(th.pending, id, command.src)
+  !isnothing(command.continuation) && insert!(command.src.pending, command.uuid, command.src)
   send(command.src, command.dst, command)
 end
 
 function collect_messages(th::Thread)
-  any(collect_messages(th, ch) for ch in channels(th))
+  any(collect_messages(th, ch) for ch in incoming_channels(th))
 end
 
 function collect_messages(th::Thread, ch::Channel)
-  while isready(ch.send)
-    item = take!(ch.send)
+  while isready(ch)
+    item = receive(ch)
     item === Cancel() && return true
     process_message(th, item)
   end
@@ -164,10 +175,10 @@ end
 
 process_message(::Thread, message::Any) = error("No processing was specified for messages with type $(typeof(message)).")
 
-function process_message(th::Thread, command::Command)
-  ret = command.f()
+function process_message(::Thread, command::Command)
+  ret = Base.invokelatest(command.f, command.args...; command.kwargs...)
   if !isnothing(command.continuation)
-    send(th, command.dst, ReturnedValue(command.uuid, ret))
+    send(command.dst, ReturnedValue(command.uuid, ret))
   end
 end
 
@@ -177,7 +188,7 @@ function process_message(th::Thread, returned::ReturnedValue)
   command.continuation(returned.value)
 end
 
-process_message(th::Thread, cancel::Cancel) = cancel
+process_message(::Thread, cancel::Cancel) = cancel
 
 abstract type ExecutionMode end
 
@@ -257,12 +268,11 @@ propagate_error(th::Thread, exc::Exception) = rethrow(exc)
 interrupt_parent(th::Thread) = nothing
 
 function cleanup(th::Thread)
-  g = thread_graph(th)
-
-  for ch in channels(th)
+  for ch in incoming_channels(th)
     collect_messages(th, ch)
     close(ch)
   end
 
+  g = thread_graph(th)
   rem_vertex!(g, th)
 end

@@ -1,4 +1,4 @@
-struct PropertyGraph{T,G<:AbstractGraph{T},V,E} <: AbstractGraph{T}
+mutable struct PropertyGraph{T,G<:AbstractGraph{T},V,E} <: AbstractGraph{T}
   graph::G
   vertex_properties::BijectiveMapping{T,V}
   edge_properties::BijectiveMapping{Edge{T},E}

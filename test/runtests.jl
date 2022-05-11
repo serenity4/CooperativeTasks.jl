@@ -5,4 +5,4 @@ using Test
   include("bijection.jl")
   include("property_graph.jl")
   include("concurrency.jl")
-end
+end;
