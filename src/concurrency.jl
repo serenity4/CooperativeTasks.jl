@@ -7,9 +7,10 @@ struct Thread
   """
   taskref::RefValue{Task}
   g::PropertyGraph
+  ownership::PropertyGraph
   pending::Dictionary{UUID,Any}
   function Thread(g::PropertyGraph)
-    th = new(Ref{Task}(), g, Dictionary())
+    th = new(Ref{Task}(), g, Dictionary(), Ref{Thread}())
     add_vertex!(g, th)
     th
   end
@@ -19,6 +20,7 @@ Base.show(io::IO, th::Thread) = print(io, "Thread(", th.taskref, ')')
 
 function set_task(th::Thread, task::Task)
   !isdefined(th.taskref, 1) || error("Replacing an existing task is not allowed.")
+  task !== current_task() && (th.owner[] = current_thread(th))
   th.taskref[] = task
   th
 end
@@ -42,6 +44,13 @@ Graphs.dst(ch::Channel) = ch.dst
 
 const ThreadGraph = PropertyGraph{Int,SimpleDiGraph{Int},Thread,Channel}
 
+Thread(task::Task, g::ThreadGraph) = set_task(Thread(g), task)
+
+function Thread(f, g::ThreadGraph)
+  th = Thread(g)
+  set_task(th, Threads.@spawn f(th))
+end
+
 function thread_graph()
   g = ThreadGraph()
   th = Thread(current_task(), g)
@@ -61,13 +70,6 @@ function channel(src::Thread, dst::Thread)
   property(g, src, dst)
 end
 
-Thread(task::Task, g::ThreadGraph) = set_task(Thread(g), task)
-
-function Thread(f, g::ThreadGraph)
-  th = Thread(g)
-  set_task(th, Threads.@spawn f(th))
-end
-
 thread_graph(th::Thread) = th.g::ThreadGraph
 thread_graph(ch::Channel) = thread_graph(ch.src)
 
@@ -82,13 +84,13 @@ function outgoing_channels(th::Thread)
 end
 
 "Send a message `v` from the current thread to `th`."
-send(th::Thread, v) = send(current_thread(thread_graph(th)), th, v)
+send(th::Thread, v) = send(current_thread(th), th, v)
 "Send a message `v` from `src` to `dst`."
 send(src::Thread, dst::Thread, v) = send(channel(src, dst), v)
 send(ch::Channel, v) = put!(ch.channel, v)
 
 "Receive a message on the current thread from `th`."
-receive(th::Thread) = receive(current_thread(thread_graph(th)), th)
+receive(th::Thread) = receive(current_thread(th), th)
 "Receive a message on `src` from `dst`."
 receive(src::Thread, dst::Thread) = receive(channel(dst, src))
 receive(ch::Channel) = take!(ch.channel)
@@ -100,7 +102,7 @@ function shutdown(src::Thread, dst::Thread)
   istaskdone(task) && return true
   cancel(src, dst)
 end
-shutdown(dst::Thread) = shutdown(current_thread(thread_graph(dst)), dst)
+shutdown(dst::Thread) = shutdown(current_thread(dst), dst)
 
 struct Cancel end
 
@@ -109,7 +111,7 @@ function cancel(src::Thread, dst::Thread; timeout = 2)
   send(src, dst, Cancel())
   wait_timeout(task, timeout)
 end
-cancel(th::Thread; timeout = 2) = cancel(current_thread(thread_graph(th)), th; timeout)
+cancel(th::Thread; timeout = 2) = cancel(current_thread(th), th; timeout)
 
 function interrupt(task::Task, timeout::Real)
   Base.throwto(task, InterruptException())
@@ -140,7 +142,7 @@ struct Command
   continuation::Any
 end
 
-Command(f, dst, args...; src = current_thread(thread_graph(dst)), continuation = nothing, kwargs...) = Command(uuid(), f, args, kwargs, src, dst, continuation)
+Command(f, dst, args...; src = current_thread(dst), continuation = nothing, kwargs...) = Command(uuid(), f, args, kwargs, src, dst, continuation)
 
 function current_thread(g::ThreadGraph)
   ths = threads(g)
@@ -149,6 +151,7 @@ function current_thread(g::ThreadGraph)
   isnothing(current_th_idx) && error("The current task has not been added to the thread graph.")
   ths[current_th_idx]
 end
+current_thread(x) = current_thread(thread_graph(x))
 
 function execute(command::Command)
   !isnothing(command.continuation) && insert!(command.src.pending, command.uuid, command.src)
@@ -252,10 +255,15 @@ function (exec::LoopExecution)(f)
       end
     end
 
+    cancel_children(th)
     cancelled && return
     interrupted && return interrupt_parent(th)
     cleanup(th)
   end
+end
+
+function cancel_children(th::Thread)
+
 end
 
 function has_activity(exec::ExecutionMode)
