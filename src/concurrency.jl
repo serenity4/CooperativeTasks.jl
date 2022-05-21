@@ -1,197 +1,175 @@
-struct Thread
-  """
-  Reference to the task being executed.
-
-  This should never be changed beyond initialization. It has been made a `Ref` so that
-  the function attached to the thread can take the thread itself as argument.
-  """
-  taskref::RefValue{Task}
-  g::PropertyGraph
-  ownership::PropertyGraph
-  pending::Dictionary{UUID,Any}
-  function Thread(g::PropertyGraph)
-    th = new(Ref{Task}(), g, Dictionary(), Ref{Thread}())
-    add_vertex!(g, th)
-    th
-  end
+struct Message{T}
+  from::Task
+  uuid::UUID
+  payload::T
+  Message(payload, uuid::UUID = uuid()) = new{typeof(payload)}(current_task(), uuid, payload)
 end
 
-Base.show(io::IO, th::Thread) = print(io, "Thread(", th.taskref, ')')
+channel() = get!(() -> Channel{Message}(Inf), task_local_storage(), :mpi_channel)::Channel{Message}
+function channel(task::Task)
+  tls = Base.get_task_tls(task)
+  val = get(tls, :mpi_channel, nothing)
+  isnothing(val) && error("A MPI channel must be created on the target task before sending or receiving any messages.")
+  val::Channel{Message}
+end
 
-function set_task(th::Thread, task::Task)
-  !isdefined(th.taskref, 1) || error("Replacing an existing task is not allowed.")
-  task !== current_task() && (th.owner[] = current_thread(th))
-  th.taskref[] = task
-  th
+const PendingMessages = Dictionary{UUID,Message}
+pending_messages() = get!(PendingMessages, task_local_storage(), :mpi_pending_messages)::PendingMessages
+
+function init(task::Task = current_task())
+  tls = Base.get_task_tls(task)
+  tls[:mpi_pending_messages] = PendingMessages()
+  tls[:mpi_channel] = Channel{Message}(Inf)
 end
 
 """
-Directed communication link from `src` to `dst`.
-`send` and `recv` are to be interpreted from the perspective of `src`.
+List of tasks which are shutdown via a finalizer once the lifetime of `TaskGroup` expires.
 """
-struct Channel
-  src::Thread
-  dst::Thread
-  channel::Base.Channel{Any}
-end
-
-@forward Channel.channel (Base.isready, Base.close)
-
-Channel(src::Thread, dst::Thread, size::Real = Inf) = Channel(src, dst, Base.Channel{Any}(size))
-
-Graphs.src(ch::Channel) = ch.src
-Graphs.dst(ch::Channel) = ch.dst
-
-const ThreadGraph = PropertyGraph{Int,SimpleDiGraph{Int},Thread,Channel}
-
-Thread(task::Task, g::ThreadGraph) = set_task(Thread(g), task)
-
-function Thread(f, g::ThreadGraph)
-  th = Thread(g)
-  set_task(th, Threads.@spawn f(th))
-end
-
-function thread_graph()
-  g = ThreadGraph()
-  th = Thread(current_task(), g)
-  add_vertex!(g, th)
-  finalizer(g) do x
-    for dst in vertex_properties(x)
-      @async shutdown(th, dst)
+mutable struct TaskGroup
+  tasks::Vector{Task}
+  function TaskGroup(tasks = Task[])
+    tasks = convert(Vector{Task}, tasks)
+    finalizer(new(tasks)) do tg
+      for task in tg.tasks
+        @async shutdown(task)
+      end
     end
   end
 end
 
-thread(g::ThreadGraph, idx::Integer) = property(g, convert(Int, idx))
-threads(g::ThreadGraph) = vertex_properties(g)
-function channel(src::Thread, dst::Thread)
-  g = thread_graph(src)
-  add_edge!(g, src, dst)
-  property(g, src, dst)
-end
+"Send a message `m` to `task`."
+send(task::Task, @nospecialize(m::Message)) = send(channel(task), m)
+send(ch::Channel{Message}, @nospecialize(m::Message)) = put!(ch, m)
+next_message(ch::Channel{Message} = channel()) = take!(ch)
 
-thread_graph(th::Thread) = th.g::ThreadGraph
-thread_graph(ch::Channel) = thread_graph(ch.src)
+"""
+Shut down a task by cancelling it if it has not completed.
 
-function incoming_channels(th::Thread)
-  g = thread_graph(th)
-  Channel[channel(thread(g, src), th) for src in inneighbors(g, index(g, th))]
-end
-
-function outgoing_channels(th::Thread)
-  g = thread_graph(th)
-  Channel[channel(th, thread(g, dst)) for dst in outneighbors(g, index(g, th))]
-end
-
-"Send a message `v` from the current thread to `th`."
-send(th::Thread, v) = send(current_thread(th), th, v)
-"Send a message `v` from `src` to `dst`."
-send(src::Thread, dst::Thread, v) = send(channel(src, dst), v)
-send(ch::Channel, v) = put!(ch.channel, v)
-
-"Receive a message on the current thread from `th`."
-receive(th::Thread) = receive(current_thread(th), th)
-"Receive a message on `src` from `dst`."
-receive(src::Thread, dst::Thread) = receive(channel(dst, src))
-receive(ch::Channel) = take!(ch.channel)
-
-function shutdown(src::Thread, dst::Thread)
-  isdefined(dst.taskref, 1) || return true
-  task = dst.taskref[]
+See [`cancel`](@ref).
+"""
+function shutdown(task::Task)
   !istaskstarted(task) && return true
   istaskdone(task) && return true
-  cancel(src, dst)
+  cancel(task)
 end
-shutdown(dst::Thread) = shutdown(current_thread(dst), dst)
 
 struct Cancel end
 
-function cancel(src::Thread, dst::Thread; timeout = 2)
-  task = dst.taskref[]
-  send(src, dst, Cancel())
-  wait_timeout(task, timeout)
-end
-cancel(th::Thread; timeout = 2) = cancel(current_thread(th), th; timeout)
-
-function interrupt(task::Task, timeout::Real)
-  Base.throwto(task, InterruptException())
-  wait_timeout(task, timeout)
+function cancel(task::Task; timeout = 2, sleep_time = 0.01)
+  send(task, Message(Cancel()))
+  wait_timeout(task, timeout, sleep_time)
 end
 
-function wait_timeout(task::Task, timeout::Real)
+function wait_timeout(task::Task, timeout::Real, sleep_time::Real)
   t0 = time()
   while time() - t0 < timeout
     istaskdone(task) && return true
-    sleep(0.01)
+    sleep(sleep_time)
   end
   istaskdone(task)
 end
 
 """
-Execute `ret = f()` on a dst thread, optionally executing `continuation(ret)` from the source thread.
+Execute `ret = f()` on a task, optionally executing `continuation(ret)` from the task the message has been sent from.
 
-First, the command is registered on a source thread with a corresponding UUID. Then, it is sent to the dst thread for execution, which will send back the value associated with this UUID. When the source thread next collects new messages, it will run `continuation` with the returned value.
+First, the command is registered on a source task with a corresponding UUID. Then, as part of a message, it is sent to the destination task for execution, which will send back the value associated with this UUID if any continuation has been provided. If so, when the source task next collects new messages, it will run `continuation` with the returned value.
 """
 struct Command
-  uuid::UUID
   f::Any
   args::Any
   kwargs::Any
-  src::Thread
-  dst::Thread
   continuation::Any
 end
 
-Command(f, dst, args...; src = current_thread(dst), continuation = nothing, kwargs...) = Command(uuid(), f, args, kwargs, src, dst, continuation)
+Command(f, args...; continuation = nothing, kwargs...) = Command(f, args, kwargs, continuation)
 
-function current_thread(g::ThreadGraph)
-  ths = threads(g)
-  task = current_task()
-  current_th_idx = findfirst(x -> isdefined(x.taskref, 1) && x.taskref[] == task, ths)
-  isnothing(current_th_idx) && error("The current task has not been added to the thread graph.")
-  ths[current_th_idx]
-end
-current_thread(x) = current_thread(thread_graph(x))
-
-function execute(command::Command)
-  !isnothing(command.continuation) && insert!(command.src.pending, command.uuid, command.src)
-  send(command.src, command.dst, command)
+function send(task::Task, command::Message{Command})
+  !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
+  Base.@invoke send(task::Task, command::Message)
 end
 
-function collect_messages(th::Thread)
-  any(collect_messages(th, ch) for ch in incoming_channels(th))
-end
+children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)
 
-function collect_messages(th::Thread, ch::Channel)
-  while isready(ch)
-    item = receive(ch)
-    item === Cancel() && return true
-    process_message(th, item)
+function own(task::Task)
+  curr_t = current_task()
+  command = Command() do
+    tls = task_local_storage()
+    if haskey(tls, :task_owner)
+      task = tls[:task_owner]
+      isa(task, Task) || error("Key :task_owner already exists in task-local storage, and is not a `Task`.")
+      remove_owner(task)
+    end
+    tls[:task_owner] = curr_t
   end
-  false
+  send(task, Message(command))
+  push!(children_tasks(), task)
+end
+
+function owner(task::Task = current_task())
+  tls = Base.get_task_tls(task)
+  haskey(tls, :task_owner) || error("No owner found for task $task.")
+  tls[:task_owner]::Task
+end
+
+function remove_owner(task::Task)
+  curr_t = current_task()
+  command = Command() do
+    children = children_tasks()
+    i = findfirst(==(curr_t), children)
+    isnothing(i) && error("Task $curr_t is not owned by $task.")
+    deleteat!(children, i)
+  end
+  send(task, Message(command))
+end
+
+function manage_messages(ch::Channel{Message} = channel())
+  to_process = Message[]
+  while isready(ch)
+    m = next_message(ch)
+    take_note(m)
+    push!(to_process, m)
+  end
+  shutdown_scheduled() && return
+  for m in to_process
+    process_message(m)
+  end
+end
+
+take_note(@nospecialize(::Message)) = nothing
+take_note(::Message{Cancel}) = schedule_shutdown()
+
+schedule_shutdown() = task_local_storage(:mpi_shutdown_scheduled, nothing)
+
+function shutdown_scheduled()
+  tls = task_local_storage()
+  haskey(tls, :mpi_shutdown_scheduled)
 end
 
 struct ReturnedValue
-  uuid::UUID
   value::Any
 end
 
-process_message(::Thread, message::Any) = error("No processing was specified for messages with type $(typeof(message)).")
+process_message(@nospecialize(message::Message)) = @warn("Ignoring message of unidentified type $(typeof(message)).")
+process_message(::Message{Cancel}) = nothing
 
-function process_message(::Thread, command::Command)
-  ret = Base.invokelatest(command.f, command.args...; command.kwargs...)
-  if !isnothing(command.continuation)
-    send(command.dst, ReturnedValue(command.uuid, ret))
+function process_message(command::Message{Command})
+  (; payload) = command
+  ret = Base.invokelatest(payload.f, payload.args...; payload.kwargs...)
+  if !isnothing(payload.continuation)
+    send(command.from, Message(ReturnedValue(ret), command.uuid)) 
   end
 end
 
-function process_message(th::Thread, returned::ReturnedValue)
-  command = th.pending[returned.uuid]::Command
-  delete!(th.pending, returned.uuid)
-  command.continuation(returned.value)
+function process_message(m::Message{ReturnedValue})
+  messages = pending_messages()
+  command = get(messages, m.uuid, nothing)
+  if !isnothing(command)
+    delete!(messages, m.uuid)
+    (command::Message{Command}).payload.continuation(m.payload.value)
+  else
+    @warn("$(current_task()): Received a value for command $(m.uuid) but no matching command has been registered.")
+  end
 end
-
-process_message(::Thread, cancel::Cancel) = cancel
 
 abstract type ExecutionMode end
 
@@ -205,10 +183,10 @@ mutable struct ExecutionState
 end
 ExecutionState() = ExecutionState([])
 
-function record_activity(f, th::Thread, state::ExecutionState)
+function record_activity(f, state::ExecutionState)
   t = time()
   timed = @timed try
-    f(th)
+    f()
   catch e
     e
   end
@@ -223,30 +201,61 @@ struct LoopExecution <: ExecutionMode
 end
 LoopExecution(period) = LoopExecution(period, ExecutionState())
 
-function (exec::LoopExecution)(f)
-  function _exec(th::Thread)
+const Backtrace = Vector{Union{Ptr{Nothing}, Base.InterpreterIP}}
+
+function (exec::LoopExecution)(f = Returns(nothing))
+  function _exec()
     interrupted = false
     cancelled = false
+    ch = channel()
+
+    # TODO: Remove code duplication for these try/catch blocks.
+    try
+      manage_messages(ch)
+    catch exc
+      exc isa InterruptException && (interrupted = true)
+      propagate_error(ChildFailedException(exc, Base.catch_backtrace()))
+      cancelled = true
+    end
+
     while !cancelled
       t0 = time()
-      ret = f(th)
+      ret = try
+        f()
+      catch exc
+        exc, Base.catch_backtrace()
+      end
 
-      ret === 0 && break
-      if ret isa InterruptException
-        interrupted = true
+      ret === Cancel() && break
+      if ret isa Tuple && length(ret) == 2 && first(ret) isa Exception && last(ret) isa Backtrace
+        (exc, bt) = ret
+        exc isa InterruptException && (interrupted = true)
+        propagate_error(ChildFailedException(exc, bt))
         break
       end
 
-      ret isa Exception && propagate_error(th, ret)
-
       Δt = time() - t0
-      # TODO: record acitivity when collecting messages.
-      # Maybe this should be handled by the thread itself.
-      cancelled = collect_messages(th)
-      cancelled && break
+      # TODO: Record acitivity when collecting messages.
+      # Maybe this should be handled by the task itself.
+      try
+        manage_messages(ch)
+      catch exc
+        exc isa InterruptException && (interrupted = true)
+        propagate_error(ChildFailedException(exc, Base.catch_backtrace()))
+        break
+      end
+
+      shutdown_scheduled() && (cancelled = true; break)
       while Δt < exec.period || isnothing(exec.period)
-        cancelled = collect_messages(th)
-        cancelled && break
+        try
+          manage_messages(ch)
+        catch exc
+          exc isa InterruptException && (interrupted = true)
+          propagate_error(ChildFailedException(exc, Base.catch_backtrace()))
+          break
+        end
+
+        shutdown_scheduled() && (cancelled = true; break)
         Δt = time() - t0
         if Δt - exec.period ≥ 0.001 && !has_activity(exec)
           sleep(Δt - exec.period)
@@ -255,15 +264,15 @@ function (exec::LoopExecution)(f)
       end
     end
 
-    cancel_children(th)
-    cancelled && return
-    interrupted && return interrupt_parent(th)
-    cleanup(th)
+    shutdown_children()
+    interrupted && return interrupt_owner()
   end
 end
 
-function cancel_children(th::Thread)
-
+function shutdown_children()
+  for task in children_tasks()
+    shutdown(task)
+  end
 end
 
 function has_activity(exec::ExecutionMode)
@@ -271,16 +280,36 @@ function has_activity(exec::ExecutionMode)
   time() - last(exec.state.recent_activity).time < 3exec.period
 end
 
-# TODO: Implement a cancellation mechanism.
-propagate_error(th::Thread, exc::Exception) = rethrow(exc)
-interrupt_parent(th::Thread) = nothing
+struct ChildFailedException <: Exception
+  child::Task
+  exc::Exception
+  bt::Backtrace
+  ChildFailedException(exc::Exception, bt::Backtrace) = new(current_task(), exc, bt)
+end
 
-function cleanup(th::Thread)
-  for ch in incoming_channels(th)
-    collect_messages(th, ch)
-    close(ch)
+function Base.showerror(io::IO, exc::ChildFailedException)
+  exc.exc isa ChildFailedException && return showerror(io, exc.exc)
+  println(io, "ChildFailedException: Child task $(exc.child) failed:\n")
+  showerror(io, exc.exc, exc.bt)
+end
+
+propagate_error(exc::ChildFailedException) = send(owner(), Message(Command(throw, exc)))
+function interrupt_owner()
+  t = owner()
+  @async cancel(t)
+end
+
+macro spawn(ex)
+  sync_var = esc(Base.sync_varname)
+  quote
+    task = Task(() -> $(esc(ex)))
+    init(task)
+    own(task)
+    task.sticky = false
+    $(Expr(:islocal, sync_var)) && put!($sync_var, task)
+    schedule(task)
+    # TODO: Synchronize with ownership command via an acknowledgment (ack) mechanism.
+    sleep(0.2)
+    task
   end
-
-  g = thread_graph(th)
-  rem_vertex!(g, th)
 end

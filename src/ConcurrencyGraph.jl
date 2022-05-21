@@ -16,16 +16,15 @@ export BijectiveMapping,
   PropertyGraph,
   index,
   property,
-  Thread,
-  ThreadGraph,
+
+  # Concurrency
+  send, Message,
+  manage_messages,
   ExecutionMode,
   LoopExecution,
-  cancel, shutdown,
-  thread_graph,
-  current_thread,
-  threads,
+  Cancel, cancel, shutdown,
   Command,
-  execute,
-  channel
+  @spawn,
+  own
 
 end

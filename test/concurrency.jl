@@ -28,32 +28,14 @@ function test_capture_stdout(f, captured)
 end
 
 @testset "Concurrency" begin
-  g = ThreadGraph()
-  th1 = Thread(g)
-  th2 = Thread(g)
-  @test nv(g) == 2
-  @test !add_vertex!(g, th1)
-  @test !add_vertex!(g, th2)
-  @test add_edge!(g, th1, th2)
-  @test channel(th1, th2) isa ConcurrencyGraph.Channel
-  @test !has_edge(g, th2, th1)
-  @test channel(th2, th1) isa ConcurrencyGraph.Channel
-  @test has_edge(g, th2, th1)
-
-  g = thread_graph()
-  @test nv(g) == 1
-  @test current_thread(g).taskref[] == current_task()
-
-  g = thread_graph()
+  ConcurrencyGraph.init()
   exec = LoopExecution(0.1)
-  th = Thread(exec(identity), g)
-  @test add_edge!(g, current_thread(g), th)
-  @test cancel(th)
-  @test istasksuccessful(th.taskref[])
+  t = @spawn exec()()
+  @test shutdown(t)
+  @test istasksuccessful(t)
 
-  g = thread_graph()
   exec = LoopExecution(0.1)
-  th1 = Thread(exec(identity), g)
+  t1 = @spawn exec()()
 
   function pingpong(i)
     c = isodd(i) ? 'i' : 'o'
@@ -61,8 +43,11 @@ end
     i + 1
   end
 
-  test_capture_stdout(() -> execute(Command(pingpong, th1, 1; continuation = identity)), "Ping! (1)\n")
-  @test shutdown(th1)
+  test_capture_stdout(() -> send(t1, Message(Command(pingpong, 1; continuation = identity))), "Ping! (1)\n")
+  @test shutdown(t1)
+  @test istasksuccessful(t1)
+
+  test_capture_stdout(manage_messages, "")
 
   # Wait for better logging and error reporting before implementing these more complete example tests.
 
