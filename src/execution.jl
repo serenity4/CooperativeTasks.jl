@@ -49,6 +49,8 @@ function (exec::LoopExecution)(f = Returns(nothing))
         Δt = time() - t0
         if Δt - exec.period ≥ 0.001 && !has_activity(exec)
           sleep(Δt - exec.period)
+        else
+          yield()
         end
         Δt = time() - t0
       end
