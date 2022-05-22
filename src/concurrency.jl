@@ -2,7 +2,8 @@ struct Message{T}
   from::Task
   uuid::UUID
   payload::T
-  Message(payload, uuid::UUID = uuid()) = new{typeof(payload)}(current_task(), uuid, payload)
+  ack::RefValue{Bool}
+  Message(payload, uuid::UUID = uuid()) = new{typeof(payload)}(current_task(), uuid, payload, Ref(false))
 end
 
 channel() = get!(() -> Channel{Message}(Inf), task_local_storage(), :mpi_channel)::Channel{Message}
@@ -18,7 +19,6 @@ pending_messages() = get!(PendingMessages, task_local_storage(), :mpi_pending_me
 
 function init(task::Task = current_task())
   tls = Base.get_task_tls(task)
-  tls[:mpi_pending_messages] = PendingMessages()
   tls[:mpi_channel] = Channel{Message}(Inf)
 end
 
@@ -57,16 +57,17 @@ struct Cancel end
 
 function cancel(task::Task; timeout = 2, sleep_time = 0.01)
   send(task, Message(Cancel()))
-  wait_timeout(task, timeout, sleep_time)
+  wait_timeout(() -> istaskdone(task), timeout, sleep_time)
 end
 
-function wait_timeout(task::Task, timeout::Real, sleep_time::Real)
+function wait_timeout(test, timeout::Real, sleep_time::Real)
+  !iszero(sleep_time) && sleep_time < 0.001 && @warn "Sleep time is less than the granularity of `sleep` ($sleep_time < 0.001)"
   t0 = time()
   while time() - t0 < timeout
-    istaskdone(task) && return true
-    sleep(sleep_time)
+    test() && return true
+    iszero(sleep_time) ? yield() : sleep(sleep_time)
   end
-  istaskdone(task)
+  test()
 end
 
 """
@@ -90,19 +91,22 @@ end
 
 children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)
 
-function own(task::Task)
-  curr_t = current_task()
-  command = Command() do
-    tls = task_local_storage()
-    if haskey(tls, :task_owner)
-      task = tls[:task_owner]
-      isa(task, Task) || error("Key :task_owner already exists in task-local storage, and is not a `Task`.")
-      remove_owner(task)
-    end
-    tls[:task_owner] = curr_t
+function set_task_owner(owner::Task)
+  tls = task_local_storage()
+  if haskey(tls, :task_owner)
+    task = tls[:task_owner]
+    isa(task, Task) || error("Key :task_owner already exists in task-local storage, and is not a `Task`.")
+    remove_owner(task)
   end
-  send(task, Message(command))
+  tls[:task_owner] = owner
+end
+
+function own(task::Task; wait_ack = true)
+  curr_t = current_task()
+  command = Command(() -> set_task_owner(curr_t))
+  ret = send_ack(task, Message(command); wait_ack, sleep_time = 0)
   push!(children_tasks(), task)
+  ret
 end
 
 function owner(task::Task = current_task())
@@ -125,8 +129,12 @@ end
 function manage_messages(ch::Channel{Message} = channel())
   to_process = Message[]
   while isready(ch)
+    @debug "Current task: "
+    @debug "$(Base.text_colors[:yellow])$(current_task())\n$(Base.text_colors[:default])"
     m = next_message(ch)
+    @debug "Message received: $m\n"
     take_note(m)
+    m.ack[] && send(m.from, Message(Ack(m.uuid)))
     push!(to_process, m)
   end
   shutdown_scheduled() && return
@@ -169,6 +177,44 @@ function process_message(m::Message{ReturnedValue})
   else
     @warn("$(current_task()): Received a value for command $(m.uuid) but no matching command has been registered.")
   end
+end
+
+struct Ack
+  uuid::UUID
+end
+
+acks() = get!(Dictionary{UUID,Bool}, task_local_storage(), :mpi_acks)
+
+function process_message(m::Message{Ack})
+  d = acks()
+  (; uuid) = m.payload
+  if !haskey(d, uuid)
+    @warn "Received unexpected ack for message $(uuid)"
+  else
+    prev_ack = d[uuid]
+    !prev_ack || return @warn "Duplicate ack received for message $(uuid)"
+    d[uuid] = true
+  end
+end
+
+ack_received(uuid::UUID) = get(acks(), uuid, false)
+
+function wait_ack(uuid::UUID; timeout::Real = 5, sleep_time::Real = 0.001)
+  success = wait_timeout(timeout, sleep_time) do
+    manage_messages()
+    ack_received(uuid)
+  end
+  !success && @warn "Timed out while waiting for ack after $timeout seconds"
+  success
+end
+
+function send_ack(task_or_ch::Union{Task,Channel}, m::Message; wait_ack = true, timeout::Real = 5, sleep_time::Real = 0.001)
+  m.ack[] = true
+  insert!(acks(), m.uuid, false)
+  send(task_or_ch, m)
+  _wait(; timeout::Real = timeout, sleep_time::Real = sleep_time) = @__MODULE__().wait_ack(m.uuid; timeout, sleep_time)
+  wait_ack && return _wait()
+  _wait
 end
 
 abstract type ExecutionMode end
@@ -304,12 +350,11 @@ macro spawn(ex)
   quote
     task = Task(() -> $(esc(ex)))
     init(task)
-    own(task)
+    wait_own = own(task; wait_ack = false)
     task.sticky = false
     $(Expr(:islocal, sync_var)) && put!($sync_var, task)
     schedule(task)
-    # TODO: Synchronize with ownership command via an acknowledgment (ack) mechanism.
-    sleep(0.2)
+    (wait_own() && owner(task) == current_task()) || error("Failed to obtain ownership for spawned task $task.")
     task
   end
 end

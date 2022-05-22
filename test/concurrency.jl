@@ -1,4 +1,5 @@
 using Test, ConcurrencyGraph, Graphs
+using ConcurrencyGraph: ChildFailedException
 
 function istasksuccessful(task::Task)
   !istaskfailed(task) && istaskdone(task) && return true
@@ -18,24 +19,26 @@ end
 
 function test_capture_stdout(f, captured)
   mktemp() do _, io
-    redirect_stdout(io) do
-      f()
-      sleep(0.1)
+    withenv("JULIA_DEBUG" => "") do
+      redirect_stdout(io) do
+        f()
+        sleep(0.1)
+      end
+      seekstart(io)
+      @test read(io, String) == captured
     end
-    seekstart(io)
-    @test read(io, String) == captured
   end
 end
 
 @testset "Concurrency" begin
   ConcurrencyGraph.init()
   exec = LoopExecution(0.1)
-  t = @spawn exec()()
+  do_nothing = exec()
+  t = @spawn do_nothing()
   @test shutdown(t)
   @test istasksuccessful(t)
 
-  exec = LoopExecution(0.1)
-  t1 = @spawn exec()()
+  t = @spawn do_nothing()
 
   function pingpong(i)
     c = isodd(i) ? 'i' : 'o'
@@ -43,11 +46,20 @@ end
     i + 1
   end
 
-  test_capture_stdout(() -> send(t1, Message(Command(pingpong, 1; continuation = identity))), "Ping! (1)\n")
-  @test shutdown(t1)
-  @test istasksuccessful(t1)
+  test_capture_stdout(() -> send(t, Message(Command(pingpong, 1; continuation = identity))), "Ping! (1)\n")
+  @test shutdown(t)
+  @test istasksuccessful(t)
 
   test_capture_stdout(manage_messages, "")
+
+  @testset "Error reporting" begin
+    # Purposefully cause a `MethodError`.
+    buggy_code = () -> error("Bug!")
+    t = @spawn exec(buggy_code)()
+    sleep(0.01)
+    @test_throws ChildFailedException manage_messages()
+    @test istasksuccessful(t)
+  end
 
   # Wait for better logging and error reporting before implementing these more complete example tests.
 
