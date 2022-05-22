@@ -1,6 +1,9 @@
 using Test, ConcurrencyGraph, Graphs
 using ConcurrencyGraph: ChildFailedException
 
+ENV["JULIA_DEBUG"] = "ConcurrencyGraph"
+ENV["JULIA_DEBUG"] = ""
+
 function istasksuccessful(task::Task)
   !istaskfailed(task) && istaskdone(task) && return true
   if istaskdone(task)
@@ -53,10 +56,8 @@ end
   test_capture_stdout(manage_messages, "")
 
   @testset "Error reporting" begin
-    # Purposefully cause a `MethodError`.
     buggy_code = () -> error("Bug!")
     t = @spawn exec(buggy_code)()
-    sleep(0.01)
     @test_throws ChildFailedException manage_messages()
     @test istasksuccessful(t)
   end
