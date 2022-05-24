@@ -14,11 +14,8 @@ end
 function own(task::Task)
   task in children_tasks() && error("Task $task is already owned.")
   curr_t = current_task()
-  command = Command(set_task_owner, curr_t; continuation = owner -> owner == curr_t || error("Failed to acquire ownership for $task."))
-  m = Message(command; critical = true)
-  send(task, m)
   push!(children_tasks(), task)
-  m.uuid
+  call(set_task_owner, task, curr_t; critical = true)
 end
 
 function owner()
@@ -29,6 +26,7 @@ end
 
 has_owner() = haskey(task_local_storage(), :task_owner)
 
+"Request a parent task to remove the current task as child."
 function remove_owner(owner::Task)
   curr_t = current_task()
   command = Command() do
@@ -38,7 +36,11 @@ function remove_owner(owner::Task)
     deleteat!(children, i)
   end
   delete!(task_local_storage(), :task_owner)
-  send(owner, Message(command))
+  send(owner, command)
 end
 
-shutdown_children() = foreach(shutdown, children_tasks())
+function shutdown_children()
+  foreach(shutdown, children_tasks())
+  empty!(children_tasks())
+  nothing
+end

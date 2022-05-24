@@ -10,7 +10,10 @@ uuid() = uuid4()
 include("forward.jl")
 include("lib/bijection.jl")
 include("lib/property_graph.jl")
-include("concurrency.jl")
+
+include("messages.jl")
+include("task_state.jl")
+include("commands.jl")
 include("error.jl")
 include("ownership.jl")
 include("execution.jl")
@@ -22,14 +25,18 @@ export BijectiveMapping,
   index,
   property,
 
-  # Concurrency
   send, Message,
   manage_messages,
+
+  Cancel, cancel, shutdown,
+
   ExecutionMode,
   LoopExecution,
-  Cancel, cancel, shutdown,
   Command,
-  @spawn,
-  own, children_tasks
 
+  own, children_tasks, shutdown_children,
+
+  call, execute, Future,
+
+  @spawn
 end

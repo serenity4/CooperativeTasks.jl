@@ -17,7 +17,9 @@ end
 
 function propagate_error(exc::ChildFailedException)
   has_owner() || return @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
-  send(owner(), Message(Command(throw, exc)))
+  task = owner()
+  remove_owner(task)
+  send(task, Command(throw, exc))
 end
 
 function try_execute(f)

@@ -3,7 +3,7 @@ macro spawn(ex)
   quote
     task = Task(() -> $(esc(ex)))
     init(task)
-    uuid = own(task)
+    future = own(task)
 
     # Allow task to run on any OS thread.
     task.sticky = false
@@ -12,12 +12,7 @@ macro spawn(ex)
     $(Expr(:islocal, sync_var)) && put!($sync_var, task)
 
     schedule(task)
-    wait_timeout(5, 0) do
-      manage_critical_messages()
-      shutdown_scheduled() && return false
-      istaskfailed(task) && wait(task)
-      !haskey(pending_messages(), uuid)
-    end || error("Failed to set owner for $task.")
+    fetch(future, 5, 0) === current_task() || error("Failed to acquire ownership of $task.")
     task
   end
 end

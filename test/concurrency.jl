@@ -1,5 +1,5 @@
 using Test, ConcurrencyGraph, Graphs
-using ConcurrencyGraph: ChildFailedException
+using ConcurrencyGraph: ChildFailedException, owner, own
 
 ENV["JULIA_DEBUG"] = "ConcurrencyGraph"
 ENV["JULIA_DEBUG"] = ""
@@ -49,17 +49,32 @@ end
     i + 1
   end
 
-  test_capture_stdout(() -> send(t, Message(Command(pingpong, 1; continuation = identity))), "Ping! (1)\n")
+  test_capture_stdout(() -> send(t, Command(pingpong, 1; continuation = identity)), "Ping! (1)\n")
   @test shutdown(t)
   @test istasksuccessful(t)
 
   test_capture_stdout(manage_messages, "")
 
   @testset "Error reporting" begin
-    buggy_code = () -> error("Bug!")
-    t = @spawn exec(buggy_code)()
+    buggy_code() = error("Bug!")
+    t = @spawn do_nothing()
+    fetch(call(buggy_code, t), 0.1, 0)
     @test_throws ChildFailedException manage_messages()
     @test istasksuccessful(t)
+
+    shutdown_children()
+    manage_messages()
+
+    t2 = Ref{Task}()
+    t1 = @spawn begin
+      t2[] = @spawn buggy_code()
+      do_nothing()
+    end
+    sleep(0.1)
+    @test istasksuccessful(t1)
+    @test istasksuccessful(t2)
+    @test fetch(call(owner, t2[]), 5, 0) == t1
+    @test t1.result isa ChildFailedException
   end
 
   # Wait for better logging and error reporting before implementing these more complete example tests.
