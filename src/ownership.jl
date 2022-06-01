@@ -1,5 +1,3 @@
-children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)
-
 function set_task_owner(owner::Task)
   tls = task_local_storage()
   if haskey(tls, :task_owner)
@@ -24,7 +22,7 @@ function owner()
   tls[:task_owner]::Task
 end
 
-has_owner() = haskey(task_local_storage(), :task_owner)
+has_owner() = isa(task_local_storage(:task_owner), Task)
 
 "Request a parent task to remove the current task as child."
 function remove_owner(owner::Task)

@@ -30,8 +30,13 @@ function try_execute(f)
     # a change of ownership or other information that can
     # affect how the error is handled.
     manage_critical_messages()
+    signal_failure()
     propagate_error(ChildFailedException(exc, catch_backtrace()))
     schedule_shutdown()
     exc isa InterruptException
   end
+end
+
+function signal_failure()
+  
 end

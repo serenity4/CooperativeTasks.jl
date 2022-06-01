@@ -1,3 +1,22 @@
+@enum StatusCode::Int64 begin
+  SUCCESS = 0
+  FAILED = 1
+end
+
+Base.convert(::Type{StatusCode}, success::Bool) = StatusCode(!success)
+
+struct Result
+  status::StatusCode
+  value::Any
+end
+
+Result(status) = Result(status, nothing)
+
+failed() = Result(FAILED)
+success(value = nothing) = Result(SUCCESS, value)
+
+is_success(result::Result) = result.status == SUCCESS
+
 """
 Execute `ret = f()` on a task, optionally executing `continuation(ret)` from the task the message has been sent from.
 
@@ -8,15 +27,28 @@ struct Command
   args::Any
   kwargs::Any
   continuation::Any
-  register_future::Bool
 end
 
-Command(f, args...; continuation = nothing, register_future::Bool = false, kwargs...) = Command(f, args, kwargs, continuation, register_future)
+default_continuation(ret::Result, args...) = is_success(ret) ? nothing : throw_error(ret)
+
+function throw_error(ret::Result)
+  if ret.status == FAILED
+    if ret.value isa Exception
+      throw(ret.value)
+    else
+      error("FAILED: a failure occurred", isnothing(ret.value) ? "" : "(payload: $(ret.value))")
+    end
+  else
+    error(ret.status, ": non-success status code returned", isnothing(ret.value) ? "" : "(payload: $(ret.value))")
+  end
+end
+
+Command(f, args...; continuation = default_continuation, kwargs...) = Command(f, args, kwargs, continuation)
 
 function send(task::Task, command::Message{Command})
   !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
   Base.@invoke send(task::Task, command::Message)
-  command.payload.register_future ? Future(command.uuid, task) : nothing
+  Future(command.uuid, task)
 end
 
 function call(f, task::Task, args...; critical = false, kwargs...)
@@ -80,23 +112,25 @@ end
 
 futures() = get!(Dictionary{UUID,Any}, task_local_storage(), :futures)::Dictionary{UUID,Any}
 
-@enum FetchStatus TIMEOUT SHUTDOWN
-
 function Base.fetch(future::Future, timeout::Real = Inf, sleep_time::Real = 0)
-  isdefined(future.value, 1) && return future.value[]
+  isdefined(future.value, 1) || compute(future, timeout, sleep_time)
+  val = future.value[]
+  val isa Result ? val : success(val)
+end
+
+function compute(future::Future, timeout, sleep_time)
   d = futures()
-  status = nothing
-  wait_timeout(timeout, sleep_time) do
+  success = wait_timeout(timeout, sleep_time) do
     manage_messages()
-    if shutdown_scheduled()
-      status = SHUTDOWN
-      return true
-    end
+    shutdown_scheduled() && return false
     istaskfailed(future.from) && wait(future.from)
     haskey(d, future.uuid)
-  end || (status = TIMEOUT)
-  !isnothing(status) && return status
-  ret = d[future.uuid]
-  delete!(d, future.uuid)
-  future.value[] = ret
+  end
+  if success
+    ret = d[future.uuid]
+    delete!(d, future.uuid)
+    future.value[] = ret
+  else
+    future.value[] = failed()
+  end
 end

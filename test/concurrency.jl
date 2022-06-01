@@ -1,24 +1,8 @@
 using Test, ConcurrencyGraph, Graphs
-using ConcurrencyGraph: ChildFailedException, owner, own
+using ConcurrencyGraph: owner, own
 
 ENV["JULIA_DEBUG"] = "ConcurrencyGraph"
 ENV["JULIA_DEBUG"] = ""
-
-function istasksuccessful(task::Task)
-  !istaskfailed(task) && istaskdone(task) && return true
-  if istaskdone(task)
-    if task._isexception
-      if task.result isa Exception
-        @error "Task was not successful:" exception = (task.result::Exception, task.backtrace)
-      end
-      false
-    else
-      true
-    end
-  end
-
-  false
-end
 
 function test_capture_stdout(f, captured)
   mktemp() do _, io

@@ -1,5 +1,6 @@
 module ConcurrencyGraph
 
+using Accessors: @set
 using Graphs
 using Dictionaries
 using Base: RefValue
@@ -17,6 +18,7 @@ include("commands.jl")
 include("error.jl")
 include("ownership.jl")
 include("execution.jl")
+include("connection.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
@@ -34,7 +36,9 @@ export BijectiveMapping,
   LoopExecution,
   Command,
 
-  own, children_tasks, shutdown_children,
+  own, owner, children_tasks, shutdown_children,
+
+  ChildFailedException,
 
   call, execute, Future,
 

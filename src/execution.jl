@@ -22,6 +22,15 @@ function record_activity(f, state::ExecutionState)
   timed.value
 end
 
+struct SingleExecution <: ExecutionMode end
+
+function (exec::SingleExecution)(f = Returns(nothing))
+  function _exec()
+    try_execute(f)
+    shutdown_children()
+  end
+end
+
 struct LoopExecution <: ExecutionMode
   period::Union{Nothing,Float64}
   state::ExecutionState
@@ -38,10 +47,12 @@ function (exec::LoopExecution)(f = Returns(nothing))
 
       try_execute(f)
       shutdown_scheduled() && break
+      isnothing(exec.period) && break
 
       Δt = time() - t0
 
-      while Δt < exec.period || isnothing(exec.period)
+
+      while Δt < exec.period
 
         try_execute(manage_messages)
         shutdown_scheduled() && @goto out
