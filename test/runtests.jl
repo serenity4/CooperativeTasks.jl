@@ -1,8 +1,25 @@
 using ConcurrencyGraph
-using Test
+using Test, SafeTestsets
 
-@testset "ConcurrencyGraph.jl" begin
-  include("bijection.jl")
-  include("property_graph.jl")
-  include("concurrency.jl")
-end;
+testfile(filename) = joinpath(@__DIR__, filename)
+
+TEST_FILES = [
+  "bijection.jl",
+  "property_graph.jl",
+  "spawn.jl",
+  "execution.jl",
+]
+
+function test(file::AbstractString)
+  @info "Testing $file..."
+  path = joinpath(@__DIR__, file)
+  @eval @time @safetestset $file begin
+    include($path)
+  end
+end
+
+test(files::AbstractVector) = @testset "ConcurrencyGraph.jl" begin
+  foreach(test, files)
+end
+
+test(TEST_FILES)

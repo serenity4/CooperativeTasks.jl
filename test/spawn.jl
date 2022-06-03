@@ -1,12 +1,11 @@
 using ConcurrencyGraph, Test
 using ConcurrencyGraph: children_tasks
 
-ConcurrencyGraph.init()
-# ConcurrencyGraph.manage_messages()
-
 include("task_utils.jl")
 
 @testset "Spawning tasks" begin
+    reinit()
+
     go = Ref(false)
     t = @spawn begin
         sleep(0.5)
@@ -17,17 +16,13 @@ include("task_utils.jl")
     @test !istaskdone(t)
     @test t in children_tasks()
     @test task_owner(t) == current_task()
-    @test_throws ChildFailedException begin
-        go[] = true
-        wait(t)
-        manage_messages()
-    end
+    go[] = true
+    wait(t)
+    @test_throws ChildFailedException manage_messages()
     @test istasksuccessful(t)
 
-    @test_throws ChildFailedException begin
-        t = @spawn error("Failed!")
-        wait(t)
-        manage_messages()
-    end
+    t = @spawn error("Failed!")
+    wait(t)
     @test istasksuccessful(t)
+    @test_throws ChildFailedException manage_messages()
 end

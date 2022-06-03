@@ -1,3 +1,8 @@
+function reinit()
+  ConcurrencyGraph.shutdown_children()
+  ConcurrencyGraph.init()
+end
+
 function istasksuccessful(task::Task)
   !istaskfailed(task) && istaskdone(task) && return true
   if istaskdone(task)

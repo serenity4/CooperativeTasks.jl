@@ -1,8 +1,7 @@
 using Test, ConcurrencyGraph, Graphs
 using ConcurrencyGraph: owner, own
 
-ENV["JULIA_DEBUG"] = "ConcurrencyGraph"
-ENV["JULIA_DEBUG"] = ""
+
 
 function test_capture_stdout(f, captured)
   mktemp() do _, io
