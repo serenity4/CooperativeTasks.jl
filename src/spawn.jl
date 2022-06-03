@@ -1,9 +1,8 @@
 macro spawn(mode, ex)
   sync_var = esc(Base.sync_varname)
-  isa(mode, QuoteNode) && (mode = mode.value)
-  exec = execution_mode(mode)
   quote
-    task = Task($exec(() -> $(esc(ex))))
+    exec = execution_mode($(esc(mode)))
+    task = Task(exec(() -> $(esc(ex))))
 
     # Setup required task-local storage.
     # Note: this is not concurrent, be careful to not schedule the task for execution before we are done with `tls`.
