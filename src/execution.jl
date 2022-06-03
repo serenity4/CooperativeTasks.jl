@@ -47,10 +47,11 @@ function (exec::LoopExecution)(f = Returns(nothing))
 
       try_execute(f)
       shutdown_scheduled() && break
-      isnothing(exec.period) && break
+
+      try_execute(manage_messages)
+      isnothing(exec.period) && continue
 
       Δt = time() - t0
-
 
       while Δt < exec.period
 

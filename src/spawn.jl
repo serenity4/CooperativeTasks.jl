@@ -29,7 +29,6 @@ macro spawn(mode, ex)
     $(Expr(:islocal, sync_var)) && put!($sync_var, task)
 
     schedule(task)
-    errormonitor(task)
     task
   end
 end
