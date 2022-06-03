@@ -9,8 +9,8 @@ using UUIDs: uuid4, UUID
 uuid() = uuid4()
 
 include("forward.jl")
-include("lib/bijection.jl")
-include("lib/property_graph.jl")
+# include("lib/bijection.jl")
+# include("lib/property_graph.jl")
 
 include("messages.jl")
 include("task_state.jl")
@@ -22,12 +22,7 @@ include("connection.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
-export BijectiveMapping,
-  PropertyGraph,
-  index,
-  property,
-
-  send, Message,
+export send, Message,
   manage_messages,
 
   Cancel, cancel, shutdown,
