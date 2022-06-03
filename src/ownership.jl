@@ -30,7 +30,7 @@ function remove_owner(owner::Task)
   command = Command() do
     children = children_tasks()
     i = findfirst(==(curr_t), children)
-    isnothing(i) && error("Task $curr_t is not owned by $owner.")
+    isnothing(i) && return
     deleteat!(children, i)
   end
   delete!(task_local_storage(), :task_owner)

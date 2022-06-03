@@ -1,5 +1,5 @@
 function reinit()
-  ConcurrencyGraph.shutdown_children()
+  haskey(task_local_storage(), :children_tasks) && ConcurrencyGraph.shutdown_children()
   ConcurrencyGraph.init()
 end
 

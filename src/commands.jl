@@ -52,7 +52,7 @@ function send(task::Task, command::Message{Command})
 end
 
 function call(f, task::Task, args...; critical = false, kwargs...)
-  send(task, Command(f, args...; kwargs..., register_future = true); critical)
+  send(task, Command(f, args...; kwargs...); critical)
 end
 
 function execute(f, task::Task, args...; critical = false, kwargs...)
@@ -62,34 +62,28 @@ end
 function process_message(command::Message{Command})
   (; payload) = command
   ret = Base.invokelatest(payload.f, payload.args...; payload.kwargs...)
-  if !isnothing(payload.continuation) || payload.register_future
-    send(command.from, Message(ReturnedValue(ret, payload.register_future), command.uuid; command.critical))
-  end
+  send(command.from, Message(ReturnedValue(ret), command.uuid; command.critical))
 end
 
 struct ReturnedValue
   value::Any
-  register_future::Bool
 end
 
 function process_message(m::Message{ReturnedValue})
   messages = pending_messages()
   command = get(messages, m.uuid, nothing)
-  if m.payload.register_future
-    d = futures()
-    val = get(d, m.uuid, nothing)
-    if val !== Discard()
-      isnothing(val) || error("Future already has a value: $val")
-      insert!(d, m.uuid, m.payload.value)
-    else
-      delete!(d, m.uuid)
-    end
+  d = futures()
+  val = get(d, m.uuid, nothing)
+  if val !== Discard()
+    isnothing(val) || error("Future already has a value: $val")
+    insert!(d, m.uuid, m.payload.value)
+  else
+    delete!(d, m.uuid)
   end
   if !isnothing(command)
     delete!(messages, m.uuid)
     (command::Message{Command}).payload.continuation(m.payload.value)
   end
-  !m.payload.register_future && isnothing(command) && @warn("$(current_task()): Received a value for command $(m.uuid) but no matching command has been registered.")
 end
 
 "Placeholder for a `Future` UUID to prevent any value from being stored for this `Future`."

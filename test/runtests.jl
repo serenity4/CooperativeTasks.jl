@@ -22,4 +22,4 @@ test(files::AbstractVector) = @testset "ConcurrencyGraph.jl" begin
   foreach(test, files)
 end
 
-test(TEST_FILES)
+test(TEST_FILES);
