@@ -34,12 +34,14 @@ include("task_utils.jl")
     # Cancellation.
     t = @spawn exec nothing
     # Wait for task to start on slow systems.
-    sleep(0.01)
+    sleep(0.05)
     manage_messages()
     fut = shutdown(t)
     @test isa(fut, Future)
     ret = fetch(fut)
     @test is_success(ret) && value(ret) === true
+    # Wait for task to exit.
+    sleep(0.05)
     @test istaskdone(t)
   end
 end
