@@ -88,7 +88,7 @@ function process_message(m::Message{ReturnedValue})
     delete!(messages, m.uuid)
     ret = m.payload.value
     !isa(ret, Result) && (ret = success(ret))
-    (command::Message{Command}).payload.continuation(ret)
+    Base.invokelatest((command::Message{Command}).payload.continuation, ret)
   end
 end
 
