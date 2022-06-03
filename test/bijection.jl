@@ -28,4 +28,4 @@ using ConcurrencyGraph, Test
   d["c"] = :d
   @test !haskey(d, :b)
   @test d[:d] == "c"
-end
+end;

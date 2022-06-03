@@ -12,8 +12,11 @@ end
 
 Result(status) = Result(status, nothing)
 
-failed() = Result(FAILED)
+failed(value = nothing) = Result(FAILED, value)
 success(value = nothing) = Result(SUCCESS, value)
+
+status(result::Result) = result.status
+value(result::Result) = result.value
 
 is_success(result::Result) = result.status == SUCCESS
 
@@ -29,19 +32,7 @@ struct Command
   continuation::Any
 end
 
-default_continuation(ret::Result, args...) = is_success(ret) ? nothing : throw_error(ret)
-
-function throw_error(ret::Result)
-  if ret.status == FAILED
-    if ret.value isa Exception
-      throw(ret.value)
-    else
-      error("FAILED: a failure occurred", isnothing(ret.value) ? "" : "(payload: $(ret.value))")
-    end
-  else
-    error(ret.status, ": non-success status code returned", isnothing(ret.value) ? "" : "(payload: $(ret.value))")
-  end
-end
+default_continuation(ret::Result, args...) = !is_success(ret) ? @warn("Non-success status $(status(ret)) returned (returned value: $(value(ret)))") : nothing
 
 Command(f, args...; continuation = default_continuation, kwargs...) = Command(f, args, kwargs, continuation)
 
@@ -61,8 +52,21 @@ end
 
 function process_message(command::Message{Command})
   (; payload) = command
-  ret = Base.invokelatest(payload.f, payload.args...; payload.kwargs...)
+  ret = try
+    success(Base.invokelatest(payload.f, payload.args...; payload.kwargs...))
+  catch e
+    isa(e, ChildFailedException) && rethrow()
+    failed((e, catch_backtrace()))
+  end
   send(command.from, Message(ReturnedValue(ret), command.uuid; command.critical))
+end
+
+function Base.show(io::IO, ::MIME"text/plain", result::Result)
+  if status(result) == FAILED && result.value isa Tuple{<:Exception, Backtrace}
+    println(io, "Failed result:\n")
+    return showerror(io, result.value...)
+  end
+  show(io, result)
 end
 
 struct ReturnedValue
@@ -110,8 +114,7 @@ futures() = get!(Dictionary{UUID,Any}, task_local_storage(), :futures)::Dictiona
 
 function Base.fetch(future::Future, timeout::Real = Inf, sleep_time::Real = 0)
   isdefined(future.value, 1) || compute(future, timeout, sleep_time)
-  val = future.value[]
-  val isa Result ? val : success(val)
+  future.value[]
 end
 
 function compute(future::Future, timeout, sleep_time)
@@ -119,7 +122,6 @@ function compute(future::Future, timeout, sleep_time)
   success = wait_timeout(timeout, sleep_time) do
     manage_messages()
     shutdown_scheduled() && return false
-    istaskfailed(future.from) && wait(future.from)
     haskey(d, future.uuid)
   end
   if success

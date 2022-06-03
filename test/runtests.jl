@@ -8,6 +8,7 @@ TEST_FILES = [
   "property_graph.jl",
   "spawn.jl",
   "execution.jl",
+  "commands.jl",
 ]
 
 function test(file::AbstractString)

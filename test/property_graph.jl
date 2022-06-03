@@ -44,4 +44,4 @@ Graphs.dst(edge::LabeledEdge) = edge.dst
   @test add_vertex!(g, :a)
   @test add_edge!(g, :a, :b)
   @test has_edge(g, :a, :b)
-end
+end;

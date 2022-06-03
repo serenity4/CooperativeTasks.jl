@@ -18,8 +18,8 @@ Shut down a task by cancelling it if it has not completed.
 See [`cancel`](@ref).
 """
 function shutdown(task::Task)
-  !istaskstarted(task) && return true
-  istaskdone(task) && return true
+  !istaskstarted(task) && return success(true)
+  istaskdone(task) && return success(true)
   cancel(task)
 end
 

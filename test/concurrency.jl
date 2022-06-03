@@ -74,4 +74,4 @@ end
   # @test cancel(th2)
   # @test istasksuccessful(th1.taskref[])
   # @test istasksuccessful(th2.taskref[])
-end
+end;

@@ -40,6 +40,8 @@ export BijectiveMapping,
 
   ChildFailedException,
 
+  Result, is_success, status, value,
+
   call, execute, Future,
 
   @spawn

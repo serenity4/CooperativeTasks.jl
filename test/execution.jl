@@ -1,8 +1,6 @@
 using ConcurrencyGraph, Test
 using ConcurrencyGraph: children_tasks, Future
 
-ConcurrencyGraph.init()
-
 include("task_utils.jl")
 
 @testset "Execution modes" begin
@@ -38,7 +36,8 @@ include("task_utils.jl")
     manage_messages()
     fut = shutdown(t)
     @test isa(fut, Future)
-    @test fetch(fut) == ConcurrencyGraph.success(true)
+    ret = fetch(fut)
+    @test is_success(ret) && value(ret) === true
     @test istaskdone(t)
   end
 end
