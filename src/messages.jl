@@ -23,11 +23,8 @@ function shutdown(task::Task)
   cancel(task)
 end
 
-struct Cancel end
-
 function cancel(task::Task; timeout = 2, sleep_time = 0.01)
-  send(task, Cancel())
-  wait_timeout(() -> istaskdone(task), timeout, sleep_time)
+  send(task, Command(schedule_shutdown))
 end
 
 function wait_timeout(test, timeout::Real, sleep_time::Real)
@@ -79,18 +76,12 @@ function read_messages()
     @debug "$(Base.text_colors[:yellow])$(current_task())\n$(Base.text_colors[:default])"
     m = next_message()
     @debug "Message received: $m\n"
-    take_note(m)
     m.ack[] && send(m.from, Ack(m.uuid))
     push!(to_process, m)
   end
 
   to_process
 end
-
-take_note(@nospecialize(::Message)) = nothing
-take_note(::Message{Cancel}) = schedule_shutdown()
-
-process_message(::Message{Cancel}) = nothing
 
 struct Ack
   uuid::UUID

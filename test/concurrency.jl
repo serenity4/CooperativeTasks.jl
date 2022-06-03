@@ -1,8 +1,6 @@
 using Test, ConcurrencyGraph, Graphs
 using ConcurrencyGraph: owner, own
 
-
-
 function test_capture_stdout(f, captured)
   mktemp() do _, io
     withenv("JULIA_DEBUG" => "") do
@@ -17,10 +15,8 @@ function test_capture_stdout(f, captured)
 end
 
 @testset "Concurrency" begin
-  ConcurrencyGraph.init()
-  exec = LoopExecution(0.1)
-  do_nothing = exec()
-  t = @spawn do_nothing()
+  reinit()
+  t = @spawn nothing
   @test shutdown(t)
   @test istasksuccessful(t)
 

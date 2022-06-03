@@ -70,19 +70,21 @@ struct ReturnedValue
 end
 
 function process_message(m::Message{ReturnedValue})
-  messages = pending_messages()
-  command = get(messages, m.uuid, nothing)
   d = futures()
   val = get(d, m.uuid, nothing)
-  if val !== Discard()
-    isnothing(val) || error("Future already has a value: $val")
-    insert!(d, m.uuid, m.payload.value)
-  else
+  if val === Discard()
     delete!(d, m.uuid)
+  else
+    isnothing(val) || error("Future already returned a value: $val")
+    insert!(d, m.uuid, m.payload.value)
   end
+  messages = pending_messages()
+  command = get(messages, m.uuid, nothing)
   if !isnothing(command)
     delete!(messages, m.uuid)
-    (command::Message{Command}).payload.continuation(m.payload.value)
+    ret = m.payload.value
+    !isa(ret, Result) && (ret = success(ret))
+    (command::Message{Command}).payload.continuation(ret)
   end
 end
 
