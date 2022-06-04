@@ -15,6 +15,7 @@ macro spawn(mode, ex)
     tls[:mpi_connections] = Dictionary{Task,Connection}()
     tls[:mpi_task_states] = Dictionary{Task,TaskState}()
     tls[:mpi_acks] = Dictionary{UUID,Bool}()
+    tls[:error_handlers] = Dictionary{Task,Any}()
     tls[:children_tasks] = Task[]
 
     # List spawned task as child of the current task.

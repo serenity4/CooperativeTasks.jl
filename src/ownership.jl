@@ -33,7 +33,7 @@ function remove_owner(owner::Task)
     isnothing(i) && return
     deleteat!(children, i)
   end
-  delete!(task_local_storage(), :task_owner)
+  task_local_storage(:task_owner, nothing)
   send(owner, command)
 end
 

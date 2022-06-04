@@ -9,6 +9,7 @@ TEST_FILES = [
   "spawn.jl",
   "execution.jl",
   "commands.jl",
+  "monitoring.jl",
 ]
 
 function test(file::AbstractString)

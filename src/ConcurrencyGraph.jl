@@ -33,7 +33,7 @@ export send, Message,
 
   own, owner, children_tasks, shutdown_children,
 
-  ChildFailedException,
+  ChildFailedException, monitor_children,
 
   Result, is_success, status, value,
 

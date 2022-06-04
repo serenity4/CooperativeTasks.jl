@@ -74,10 +74,15 @@ function (exec::LoopExecution)(f = Returns(nothing))
 
     @label out
     shutdown_children()
+    has_owner() && signal_shutdown(owner())
   end
 end
 
 function has_activity(exec::ExecutionMode)
   isempty(exec.state.recent_activity) && return false
   time() - last(exec.state.recent_activity).time < 3exec.period
+end
+
+function signal_shutdown(owner::Task)
+  execute(set_task_state, owner, current_task(), DEAD)
 end

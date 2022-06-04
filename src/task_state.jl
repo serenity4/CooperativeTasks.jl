@@ -44,6 +44,8 @@ ack_received(uuid::UUID) = get(acks(), uuid, false)
 
 children_tasks() = task_local_storage(:children_tasks)::Vector{Task}
 
+error_handlers() = task_local_storage(:error_handlers)::Dictionary{Task,Any}
+
 function next_message()
   m = take!(channel())
   set_task_state(m.from, ALIVE)
@@ -58,5 +60,6 @@ function init()
   task_local_storage(:mpi_task_states, Dictionary{Task,TaskState}())
   task_local_storage(:mpi_acks, Dictionary{UUID,Bool}())
   task_local_storage(:task_owner, nothing)
+  task_local_storage(:error_handlers, Dictionary{Task,Any}())
   task_local_storage(:children_tasks, Task[])
 end
