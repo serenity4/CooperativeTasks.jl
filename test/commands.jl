@@ -4,21 +4,21 @@ using ConcurrencyGraph: children_tasks, Future
 include("task_utils.jl")
 
 @testset "Commands" begin
-  reinit()
+  reset_all()
 
   t = @spawn :looped nothing
   fut = execute(() -> 1 + 1, t)
   @test isa(fut, Future)
-  ret = fetch(fut, 1)
+  ret = fetch(fut; timeout = 1)
   @test is_success(ret)
   @test value(ret) == 2
   @test !istaskdone(t)
   fut = execute(Base.Fix1(+, 1), t, 1)
-  @test value(fetch(fut, 1)) == 2
+  @test value(fetch(fut; timeout = 1)) == 2
   fut = execute(() -> error("Oh no!"), t; continuation = nothing)
-  ret = fetch(fut, 1)
+  ret = fetch(fut; timeout = 1)
   @test !is_success(ret)
-  @test value(fetch(shutdown(t)))
+  @test wait(shutdown(t))
 
   @testset "Ping-pong example" begin
     function test_capture_stdout(f, captured)

@@ -1,10 +1,10 @@
 using ConcurrencyGraph, Test
-using ConcurrencyGraph: children_tasks, Future
+using ConcurrencyGraph: children_tasks, Future, Condition
 
 include("task_utils.jl")
 
 @testset "Execution modes" begin
-  reinit()
+  reset_all()
   t = @spawn nothing
   @test t in children_tasks()
   wait(t)
@@ -12,7 +12,7 @@ include("task_utils.jl")
   @test manage_messages() isa Any
 
   for exec in (LoopExecution(nothing), LoopExecution(0.01))
-    reinit()
+    reset_all()
 
     # Normal operations.
     t = @spawn exec nothing
@@ -36,12 +36,9 @@ include("task_utils.jl")
     # Wait for task to start on slow systems.
     sleep(0.05)
     manage_messages()
-    fut = shutdown(t)
-    @test isa(fut, Future)
-    ret = fetch(fut)
-    @test is_success(ret) && value(ret) === true
-    # Wait for task to exit.
-    sleep(0.05)
+    cond = shutdown(t)
+    @test isa(cond, Condition)
+    @test wait(cond)
     @test istaskdone(t)
   end
 end

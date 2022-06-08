@@ -8,7 +8,10 @@ struct Message{T}
 end
 
 "Send a message `m` to `task`."
-send(task::Task, @nospecialize(m::Message)) = send(channel(task), m)
+function send(task::Task, @nospecialize(m::Message))
+  state(task) == DEAD && return failed()
+  send(channel(task), m)
+end
 send(ch::Channel{Message}, @nospecialize(m::Message)) = put!(ch, m)
 send(task_or_ch::Union{Task,Channel{Message}}, @nospecialize(m); critical = false) = send(task_or_ch, Message(m; critical))
 
@@ -18,14 +21,13 @@ Shut down a task by cancelling it if it has not completed.
 See [`cancel`](@ref).
 """
 function shutdown(task::Task)
-  !istaskstarted(task) && return success(true)
-  istaskdone(task) && return success(true)
+  !istaskstarted(task) && return Condition(Returns(true))
+  istaskdone(task) && return Condition(Returns(true))
   cancel(task)
+  Condition(() -> state(task) == DEAD)
 end
 
-function cancel(task::Task; timeout = 2, sleep_time = 0.01)
-  send(task, Command(schedule_shutdown))
-end
+cancel(task::Task) = send(task, Command(schedule_shutdown))
 
 function wait_timeout(test, timeout::Real, sleep_time::Real)
   !iszero(sleep_time) && sleep_time < 0.001 && @warn "Sleep time is less than the granularity of `sleep` ($sleep_time < 0.001)"
@@ -48,7 +50,9 @@ end
 function process_messages()
   messages = unprocessed_messages()
   while !isempty(messages)
-    process_message(pop!(messages))
+    m = pop!(messages)
+    set_task_state(m.from, ALIVE)
+    process_message(m)
   end
 end
 

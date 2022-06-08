@@ -46,7 +46,7 @@ function (exec::LoopExecution)(f = Returns(nothing))
       t0 = time()
 
       try_execute(f)
-      shutdown_scheduled() && break
+      shutdown_scheduled() && @goto out
 
       try_execute(manage_messages)
 
@@ -73,8 +73,14 @@ function (exec::LoopExecution)(f = Returns(nothing))
     end
 
     @label out
-    shutdown_children()
-    has_owner() && signal_shutdown(owner())
+    shutdown()
+  end
+end
+
+function shutdown()
+  shutdown_children()
+  for t in known_tasks()
+    state(t) ≠ DEAD && signal_shutdown(t)
   end
 end
 
@@ -83,6 +89,4 @@ function has_activity(exec::ExecutionMode)
   time() - last(exec.state.recent_activity).time < 3exec.period
 end
 
-function signal_shutdown(owner::Task)
-  execute(set_task_state, owner, current_task(), DEAD)
-end
+signal_shutdown(task::Task) = execute(set_task_state, task, current_task(), DEAD)

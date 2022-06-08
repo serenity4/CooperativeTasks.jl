@@ -4,7 +4,7 @@ using ConcurrencyGraph: children_tasks
 include("task_utils.jl")
 
 @testset "Spawning tasks" begin
-    reinit()
+    reset_all()
 
     t = @spawn begin
         sleep(0.5)

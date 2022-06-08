@@ -99,8 +99,9 @@ mutable struct Future
   uuid::UUID
   value::Ref{Any}
   from::Task
-  function Future(uuid::UUID, task::Task)
-    future = new(uuid, Ref{Any}(), task)
+  to::Task
+  function Future(uuid::UUID, from::Task)
+    future = new(uuid, Ref{Any}(), from, current_task())
     finalizer(future) do x
       isdefined(x.value, 1) && return
       d = futures()
@@ -110,24 +111,44 @@ mutable struct Future
   end
 end
 
+mutable struct Condition
+  test::Any
+  passed::Union{Nothing,Bool}
+  Condition(test) = new(test, nothing)
+end
+
+function Base.wait(cond::Condition; timeout::Real = Inf, sleep_time::Real = 0)
+  if isnothing(cond.passed)
+    result = wait_timeout(timeout, sleep_time) do
+      manage_messages()
+      shutdown_scheduled() && return nothing
+      cond.test()
+    end
+    isnothing(result) && return false
+    cond.passed = result
+  end
+  cond.passed
+end
+
+function poll(cond::Condition)
+  !isnothing(cond.passed) && return cond.passed
+  cond.test() ? (cond.passed = true) : false
+end
+
 futures() = get!(Dictionary{UUID,Any}, task_local_storage(), :futures)::Dictionary{UUID,Any}
 
-function Base.fetch(future::Future, timeout::Real = Inf, sleep_time::Real = 0)
+function Base.fetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)
   isdefined(future.value, 1) || compute(future, timeout, sleep_time)
   future.value[]
 end
 
 function compute(future::Future, timeout, sleep_time)
+  current_task() === future.to || error("A future must be waited on from the thread that expects the result.")
   d = futures()
-  success = wait_timeout(timeout, sleep_time) do
-    manage_messages()
-    shutdown_scheduled() && return false
-    haskey(d, future.uuid)
-  end
+  success = wait(Condition(() -> haskey(d, future.uuid)); timeout, sleep_time)
   if success
-    ret = d[future.uuid]
+    future.value[] = d[future.uuid]
     delete!(d, future.uuid)
-    future.value[] = ret
   else
     future.value[] = failed()
   end

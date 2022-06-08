@@ -48,7 +48,7 @@ end
 function shutdown_on_failure(tasks)
   for task in tasks
     if state(task) == DEAD
-      foreach(shutdown, tasks)
+      wait(shutdown(tasks))
       return true
     end
   end
@@ -80,5 +80,6 @@ function monitor_children(period::Real = 0.001; allow_failures = true)
   catch e
     isa(e, InterruptException) || rethrow()
   end
+  shutdown_scheduled() && shutdown()
   nothing
 end

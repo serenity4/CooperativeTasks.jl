@@ -21,30 +21,43 @@ UNRESPONSIVE
 "The task is no longer running; either it has signalled its death or it is marked as done."
 DEAD
 
-shutdown_scheduled() = task_local_storage(:mpi_shutdown_scheduled)::Bool
+shutdown_scheduled() = get!(task_local_storage(), :mpi_shutdown_scheduled, false)::Bool
 
 schedule_shutdown() = task_local_storage(:mpi_shutdown_scheduled, true)
 
-channel() = task_local_storage(:mpi_channel)::Channel{Message}
+channel() = get!(task_local_storage(), :mpi_channel, Channel{Message}(Inf))::Channel{Message}
 
-pending_messages() = task_local_storage(:mpi_pending_messages)::PendingMessages
+pending_messages() = get!(PendingMessages, task_local_storage(), :mpi_pending_messages)::PendingMessages
 
-connections() = task_local_storage(:mpi_connections)::Dictionary{Task,Connection}
+connections() = get!(Dictionary{Task,Connection}, task_local_storage(), :mpi_connections)::Dictionary{Task,Connection}
 
-task_states() = task_local_storage(:mpi_task_states)::Dictionary{Task,TaskState}
+# Prefer using `state(::Task)` rather than iterating values.
+task_states() = get!(Dictionary{Task,TaskState}, task_local_storage(), :mpi_task_states)::Dictionary{Task,TaskState}
+known_tasks() = keys(task_states())
 
 set_task_state(task::Task, state::TaskState) = set!(task_states(), task, state)
-state(task::Task) = get(task_states(), task, nothing)
+function state(task::Task)
+  st = get(task_states(), task, nothing)
+  if isnothing(st)
+    set_task_state(task, istaskdone(task) ? DEAD : ALIVE)
+    ALIVE
+  elseif st == ALIVE && istaskdone(task)
+    set_task_state(task, DEAD)
+    DEAD
+  else
+    st
+  end
+end
 
 unprocessed_messages() = get!(Vector{Message}, task_local_storage(), :mpi_unprocessed_messages)::Vector{Message}
 
-acks() = task_local_storage(:mpi_acks)::Dictionary{UUID,Bool}
+acks() = get!(Dictionary{UUID,Bool}, task_local_storage(), :mpi_acks)::Dictionary{UUID,Bool}
 
 ack_received(uuid::UUID) = get(acks(), uuid, false)
 
-children_tasks() = task_local_storage(:children_tasks)::Vector{Task}
+children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)::Vector{Task}
 
-error_handlers() = task_local_storage(:error_handlers)::Dictionary{Task,Any}
+error_handlers() = get!(Dictionary{Task,Any}, task_local_storage(), :error_handlers)::Dictionary{Task,Any}
 
 function next_message()
   m = take!(channel())
@@ -52,14 +65,14 @@ function next_message()
   m
 end
 
-function init()
+function reset_task_state()
+  empty!(pending_messages())
+  empty!(connections())
+  empty!(task_states())
+  empty!(unprocessed_messages())
+  empty!(acks())
+  empty!(children_tasks())
+  empty!(error_handlers())
   task_local_storage(:mpi_channel, Channel{Message}(Inf))
-  task_local_storage(:mpi_shutdown_scheduled, false)
-  task_local_storage(:mpi_pending_messages, PendingMessages())
-  task_local_storage(:mpi_connections, Dictionary{Task,Connection}())
-  task_local_storage(:mpi_task_states, Dictionary{Task,TaskState}())
-  task_local_storage(:mpi_acks, Dictionary{UUID,Bool}())
-  task_local_storage(:task_owner, nothing)
-  task_local_storage(:error_handlers, Dictionary{Task,Any}())
-  task_local_storage(:children_tasks, Task[])
+  nothing
 end

@@ -1,6 +1,7 @@
-function reinit()
-  haskey(task_local_storage(), :children_tasks) && ConcurrencyGraph.shutdown_children()
-  ConcurrencyGraph.init()
+function reset_all()
+  shutdown_children()
+  manage_messages()
+  ConcurrencyGraph.reset_task_state()
 end
 
 function istasksuccessful(task::Task)

@@ -38,7 +38,13 @@ function remove_owner(owner::Task)
 end
 
 function shutdown_children()
-  foreach(shutdown, children_tasks())
+  tasks = children_tasks()
+  cond = shutdown(tasks)
   empty!(children_tasks())
-  nothing
+  cond
+end
+
+function shutdown(tasks::AbstractVector{Task})
+  conds = shutdown.(tasks)
+  Condition(() -> all(poll, conds))
 end
