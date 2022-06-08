@@ -157,6 +157,8 @@ function Base.fetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::
   future.value[]
 end
 
+Base.fetch(ret::Result{Future}) = fetch(unwrap(ret))
+
 function compute(future::Future, timeout, sleep_time)::Result{Any,Union{ConcurrencyError,TaskError}}
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")
   d = futures()
