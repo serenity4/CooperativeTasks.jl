@@ -49,11 +49,11 @@ struct Command
   args::Any
   kwargs::Any
   continuation::Any
+  Command(f, args...; continuation = default_continuation, kwargs...) = new(f, args, kwargs, continuation)
 end
 
 default_continuation(::Result, args...) = Returns(nothing)
 
-Command(f, args...; continuation = default_continuation, kwargs...) = Command(f, args, kwargs, continuation)
 
 function send(task::Task, command::Message{Command})::Result{Future,ConcurrencyError}
   !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
@@ -77,14 +77,6 @@ function process_command(command::Command)::Result{Any,Union{ConcurrencyError, T
     isa(e, PropagatedTaskError) && rethrow()
     TaskError(e, catch_backtrace())
   end
-end
-
-function Base.show(io::IO, ::MIME"text/plain", result::Result)
-  if status(result) == FAILED && result.value isa Tuple{<:Exception, Backtrace}
-    println(io, "Failed result:\n")
-    return showerror(io, result.value...)
-  end
-  show(io, result)
 end
 
 struct ReturnedValue

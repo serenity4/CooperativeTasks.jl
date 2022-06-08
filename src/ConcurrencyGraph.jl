@@ -38,7 +38,7 @@ export send, Message,
   TaskError, PropagatedTaskError, ConcurrencyError, monitor_children,
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
 
-  call, execute, Future,
+  call, execute, Future, reset_all, istasksuccessful,
 
   @spawn
 end

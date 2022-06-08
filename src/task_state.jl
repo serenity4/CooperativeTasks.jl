@@ -79,3 +79,9 @@ function reset_task_state()
   task_local_storage(:mpi_channel, Channel{Message}(Inf))
   nothing
 end
+
+function reset_all()
+  shutdown_children()
+  manage_messages()
+  reset_task_state()
+end

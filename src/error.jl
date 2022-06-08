@@ -88,7 +88,23 @@ function monitor_children(period::Real = 0.001; allow_failures = true)
     end
   catch e
     isa(e, InterruptException) || rethrow()
+    shutdown_children()
   end
   shutdown_scheduled() && shutdown()
   nothing
+end
+
+function istasksuccessful(task::Task)
+  !istaskfailed(task) && istaskdone(task) && return true
+  if istaskdone(task)
+    if task._isexception
+      if task.result isa Exception
+        @error "Task was not successful:" exception = (task.result::Exception, task.backtrace)
+      end
+      false
+    else
+      true
+    end
+  end
+  false
 end

@@ -1,24 +1,3 @@
-function reset_all()
-  shutdown_children()
-  manage_messages()
-  ConcurrencyGraph.reset_task_state()
-end
-
-function istasksuccessful(task::Task)
-  !istaskfailed(task) && istaskdone(task) && return true
-  if istaskdone(task)
-    if task._isexception
-      if task.result isa Exception
-        @error "Task was not successful:" exception = (task.result::Exception, task.backtrace)
-      end
-      false
-    else
-      true
-    end
-  end
-  false
-end
-
 """
 Retrieve the task owner by snooping at task-local state.
 
