@@ -5,6 +5,8 @@ using Graphs
 using Dictionaries
 using Base: RefValue
 using UUIDs: uuid4, UUID
+using Reexport
+@reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 
 uuid() = uuid4()
 
@@ -33,9 +35,8 @@ export send, Message,
 
   own, owner, children_tasks, shutdown_children,
 
-  ChildFailedException, monitor_children,
-
-  Result, is_success, status, value,
+  TaskError, PropagatedTaskError, ConcurrencyError, monitor_children,
+  SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
 
   call, execute, Future,
 

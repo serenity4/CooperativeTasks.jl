@@ -59,6 +59,8 @@ children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)::Ve
 
 error_handlers() = get!(Dictionary{Task,Any}, task_local_storage(), :error_handlers)::Dictionary{Task,Any}
 
+futures() = get!(Dictionary{UUID,Any}, task_local_storage(), :futures)::Dictionary{UUID,Any}
+
 function next_message()
   m = take!(channel())
   set_task_state(m.from, ALIVE)
@@ -73,6 +75,7 @@ function reset_task_state()
   empty!(acks())
   empty!(children_tasks())
   empty!(error_handlers())
+  empty!(futures())
   task_local_storage(:mpi_channel, Channel{Message}(Inf))
   nothing
 end

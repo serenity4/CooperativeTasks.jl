@@ -7,18 +7,19 @@ include("task_utils.jl")
   reset_all()
 
   t = @spawn :looped nothing
-  fut = execute(() -> 1 + 1, t)
+  fut = unwrap(execute(() -> 1 + 1, t))
   @test isa(fut, Future)
   ret = fetch(fut; timeout = 1)
-  @test is_success(ret)
-  @test value(ret) == 2
+  @test !iserror(ret)
+  @test unwrap(ret) == 2
   @test !istaskdone(t)
-  fut = execute(Base.Fix1(+, 1), t, 1)
-  @test value(fetch(fut; timeout = 1)) == 2
-  fut = execute(() -> error("Oh no!"), t; continuation = nothing)
-  ret = fetch(fut; timeout = 1)
-  @test !is_success(ret)
+  fut = unwrap(execute(Base.Fix1(+, 1), t, 1))
+  @test unwrap(fetch(fut; timeout = 1)) == 2
+  fut = unwrap(execute(() -> error("Oh no!"), t; continuation = nothing))
+  err = unwrap_error(fetch(fut; timeout = 1))
+  @test err isa TaskError && err.exc == ErrorException("Oh no!")
   @test wait(shutdown(t))
+  @test unwrap_error(execute(Returns(nothing), t)) == ConcurrencyError(RECEIVER_DEAD)
 
   @testset "Ping-pong example" begin
     function test_capture_stdout(f, captured)
@@ -48,8 +49,8 @@ include("task_utils.jl")
     t2 = @spawn :looped nothing
 
     function pingpong_continuation(i)
-      is_success(i) || return
-      i = value(i)
+      !iserror(i) || return
+      i = unwrap(i)
       i > 5 && return
       execute(pingpong, iseven(i) ? t : t2, i; continuation = pingpong_continuation)
     end
@@ -62,7 +63,7 @@ include("task_utils.jl")
       Pong! (4)
       Ping! (5)
       """)
-    @test is_success(fetch(fut))
+    @test !iserror(fetch(fut))
     shutdown_children()
   end
 end;

@@ -17,9 +17,9 @@ include("task_utils.jl")
   end
 
   sleep(0.2)
-  @test value(fetch(execute(task_states, t1[]))) == dictionary([t => ALIVE, current_task() => ALIVE])
+  @test unwrap(fetch(unwrap(execute(task_states, t1[])))) == dictionary([t => ALIVE, current_task() => ALIVE])
   @test wait(shutdown(t1[]))
-  @test value(fetch(execute(state, t, t1[]))) == DEAD
+  @test unwrap(fetch(unwrap(execute(state, t, t1[])))) == DEAD
   @test !istaskdone(t)
   @test wait(shutdown(t2[]))
   wait(t)
@@ -37,4 +37,4 @@ include("task_utils.jl")
   wait(t2[])
   @test istasksuccessful(t2[])
   @test istasksuccessful(t)
-end
+end;

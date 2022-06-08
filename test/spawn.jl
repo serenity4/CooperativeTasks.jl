@@ -16,11 +16,11 @@ include("task_utils.jl")
     @test t in children_tasks()
     @test task_owner(t) == current_task()
     wait(t)
-    @test_throws ChildFailedException manage_messages()
+    @test_throws PropagatedTaskError manage_messages()
     @test istasksuccessful(t)
 
     t = @spawn error("Failed!")
     wait(t)
     @test istasksuccessful(t)
-    @test_throws ChildFailedException manage_messages()
+    @test_throws PropagatedTaskError manage_messages()
 end;

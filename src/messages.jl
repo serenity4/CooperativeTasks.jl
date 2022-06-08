@@ -8,8 +8,8 @@ struct Message{T}
 end
 
 "Send a message `m` to `task`."
-function send(task::Task, @nospecialize(m::Message))
-  state(task) == DEAD && return failed()
+function send(task::Task, @nospecialize(m::Message))::Result{Message,ConcurrencyError}
+  state(task) == DEAD && return ConcurrencyError(RECEIVER_DEAD)
   send(channel(task), m)
 end
 send(ch::Channel{Message}, @nospecialize(m::Message)) = put!(ch, m)
