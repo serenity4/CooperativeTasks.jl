@@ -55,19 +55,22 @@ end
 default_continuation(::Result, args...) = Returns(nothing)
 
 
-function send(task::Task, command::Message{Command})::Result{Future,ConcurrencyError}
+function trysend(task::Task, command::Message{Command})::Result{Future,ConcurrencyError}
   !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
-  @try(Base.@invoke send(task::Task, command::Message))
+  @try(Base.@invoke trysend(task::Task, command::Message))
   Future(command.uuid, task)
 end
 
-function execute(f, task::Task, args...; critical = false, kwargs...)
-  send(task, Command(f, args...; kwargs...); critical)
+function tryexecute(f, task::Task, args...; critical = false, kwargs...)
+  trysend(task, Command(f, args...; kwargs...); critical)
 end
+
+send(args...; kwargs...) = unwrap(trysend(args...; kwargs...))
+execute(args...; kwargs...) = unwrap(tryexecute(args...; kwargs...))
 
 function process_message(command::Message{Command})
   ret = ReturnedValue(process_command(command.payload))
-  send(command.from, Message(ret, command.uuid; command.critical))
+  trysend(command.from, Message(ret, command.uuid; command.critical))
 end
 
 function process_command(command::Command)::Result{Any,Union{ConcurrencyError, TaskError}}
@@ -144,12 +147,13 @@ function poll(cond::Condition)
   cond.test() ? (cond.passed = true) : false
 end
 
-function Base.fetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{ConcurrencyError,TaskError}}
+function tryfetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{ConcurrencyError,TaskError}}
   isdefined(future.value, 1) || return compute(future, timeout, sleep_time)
   future.value[]
 end
 
-Base.fetch(ret::Result{Future}) = fetch(unwrap(ret))
+tryfetch(ret::Result{Future}; timeout::Real = Inf, sleep_time::Real = 0) = tryfetch(unwrap(ret); timeout, sleep_time)
+Base.fetch(ret::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0) = unwrap(tryfetch(ret; timeout, sleep_time))
 
 function compute(future::Future, timeout, sleep_time)::Result{Any,Union{ConcurrencyError,TaskError}}
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")

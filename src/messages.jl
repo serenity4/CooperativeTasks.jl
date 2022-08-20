@@ -8,12 +8,12 @@ struct Message{T}
 end
 
 "Send a message `m` to `task`."
-function send(task::Task, @nospecialize(m::Message))::Result{Message,ConcurrencyError}
+function trysend(task::Task, @nospecialize(m::Message))::Result{Message,ConcurrencyError}
   state(task) == DEAD && return ConcurrencyError(RECEIVER_DEAD)
-  send(channel(task), m)
+  trysend(channel(task), m)
 end
-send(ch::Channel{Message}, @nospecialize(m::Message)) = put!(ch, m)
-send(task_or_ch::Union{Task,Channel{Message}}, @nospecialize(m); critical = false) = send(task_or_ch, Message(m; critical))
+trysend(ch::Channel{Message}, @nospecialize(m::Message)) = put!(ch, m)
+trysend(task_or_ch::Union{Task,Channel{Message}}, @nospecialize(m); critical = false) = trysend(task_or_ch, Message(m; critical))
 
 """
 Shut down a task by cancelling it if it has not completed.
@@ -27,7 +27,7 @@ function shutdown(task::Task)
   Condition(() -> state(task) == DEAD)
 end
 
-cancel(task::Task) = send(task, Command(schedule_shutdown))
+cancel(task::Task) = trysend(task, Command(schedule_shutdown))
 
 function wait_timeout(test, timeout::Real, sleep_time::Real)
   !iszero(sleep_time) && sleep_time < 0.001 && @warn "Sleep time is less than the granularity of `sleep` ($sleep_time < 0.001)"
@@ -80,7 +80,7 @@ function read_messages()
     @debug "$(Base.text_colors[:yellow])$(current_task())\n$(Base.text_colors[:default])"
     m = next_message()
     @debug "Message received: $m\n"
-    m.ack[] && send(m.from, Ack(m.uuid))
+    m.ack[] && trysend(m.from, Ack(m.uuid))
     push!(to_process, m)
   end
 
@@ -112,10 +112,10 @@ function wait_ack(uuid::UUID; timeout::Real = 5, sleep_time::Real = 0.001)
   success
 end
 
-function send_ack(task_or_ch::Union{Task,Channel}, m::Message; wait_ack = true, timeout::Real = 5, sleep_time::Real = 0.001)
+function trysend_ack(task_or_ch::Union{Task,Channel}, m::Message; wait_ack = true, timeout::Real = 5, sleep_time::Real = 0.001)
   m.ack[] = true
   insert!(acks(), m.uuid, false)
-  send(task_or_ch, m)
+  trysend(task_or_ch, m)
   _wait(; timeout::Real = timeout, sleep_time::Real = sleep_time) = @__MODULE__().wait_ack(m.uuid; timeout, sleep_time)
   wait_ack && return _wait()
   _wait

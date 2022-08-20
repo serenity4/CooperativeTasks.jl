@@ -24,7 +24,9 @@ include("connection.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
-export send, Message,
+export
+  Message,
+  send, trysend,
   manage_messages,
 
   Cancel, cancel, shutdown,
@@ -38,7 +40,7 @@ export send, Message,
   TaskError, PropagatedTaskError, ConcurrencyError, monitor_children,
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
 
-  call, execute, Future, reset_all, istasksuccessful,
+  call, execute, tryexecute, Future, tryfetch, reset_all, istasksuccessful,
 
   @spawn
 end

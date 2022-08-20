@@ -3,7 +3,7 @@ function set_task_owner(owner::Task)
   if haskey(tls, :task_owner)
     task = tls[:task_owner]
     isa(task, Task) || error("Key :task_owner already exists in task-local storage, and is not a `Task`.")
-    send(task, Command(remove_child, current_task()))
+    trysend(task, Command(remove_child, current_task()))
   end
   tls[:task_owner] = owner
   set!(error_handlers(), task, throw)
@@ -14,7 +14,7 @@ function own(task::Task)
   task in children_tasks() && error("Task $task is already owned.")
   curr_t = current_task()
   push!(children_tasks(), task)
-  call(set_task_owner, task, curr_t; critical = true)
+  tryexecute(set_task_owner, task, curr_t; critical = true)
 end
 
 function owner()

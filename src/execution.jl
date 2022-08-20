@@ -89,4 +89,4 @@ function has_activity(exec::ExecutionMode)
   time() - last(exec.state.recent_activity).time < 3exec.period
 end
 
-signal_shutdown(task::Task) = execute(set_task_state, task, current_task(), DEAD)
+signal_shutdown(task::Task) = tryexecute(set_task_state, task, current_task(), DEAD)

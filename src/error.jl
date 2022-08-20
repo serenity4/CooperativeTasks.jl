@@ -38,7 +38,7 @@ function propagate_error(exc::TaskError)
     # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
     return @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
   end
-  send(owner(), Command(handle_error, PropagatedTaskError(exc)))
+  trysend(owner(), Command(handle_error, PropagatedTaskError(exc)))
 end
 
 function try_execute(f)

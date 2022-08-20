@@ -7,19 +7,19 @@ include("task_utils.jl")
   reset_all()
 
   t = @spawn :looped nothing
-  fut = unwrap(execute(() -> 1 + 1, t))
+  fut = execute(() -> 1 + 1, t)
   @test isa(fut, Future)
-  ret = fetch(fut; timeout = 1)
+  ret = tryfetch(fut; timeout = 1)
   @test !iserror(ret)
   @test unwrap(ret) == 2
   @test !istaskdone(t)
-  fut = unwrap(execute(Base.Fix1(+, 1), t, 1))
-  @test unwrap(fetch(fut; timeout = 1)) == 2
-  fut = unwrap(execute(() -> error("Oh no!"), t; continuation = nothing))
-  err = unwrap_error(fetch(fut; timeout = 1))
+  fut = execute(Base.Fix1(+, 1), t, 1)
+  @test fetch(fut; timeout = 1) == 2
+  fut = execute(() -> error("Oh no!"), t; continuation = nothing)
+  err = unwrap_error(tryfetch(fut; timeout = 1))
   @test err isa TaskError && err.exc == ErrorException("Oh no!")
   @test wait(shutdown(t))
-  @test unwrap_error(execute(Returns(nothing), t)) == ConcurrencyError(RECEIVER_DEAD)
+  @test unwrap_error(tryexecute(Returns(nothing), t)) == ConcurrencyError(RECEIVER_DEAD)
 
   @testset "Ping-pong example" begin
     function pingpong(i)
@@ -30,7 +30,7 @@ include("task_utils.jl")
 
     t = @spawn :looped nothing
     ret, captured = capture_stdout(() -> execute(pingpong, t, 1))
-    @test unwrap(fetch(ret)) == 2
+    @test fetch(ret) == 2
     @test captured == "Ping! (1)\n"
 
     t2 = @spawn :looped nothing

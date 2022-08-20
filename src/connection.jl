@@ -37,5 +37,5 @@ end
 struct ConnectionRequest end
 
 function connect(peer::Task)
-  send(peer, ConnectionRequest())
+  trysend(peer, ConnectionRequest())
 end
