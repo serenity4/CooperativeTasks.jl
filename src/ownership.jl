@@ -3,9 +3,10 @@ function set_task_owner(owner::Task)
   if haskey(tls, :task_owner)
     task = tls[:task_owner]
     isa(task, Task) || error("Key :task_owner already exists in task-local storage, and is not a `Task`.")
-    remove_owner(task)
+    send(task, Command(remove_child, current_task()))
   end
   tls[:task_owner] = owner
+  set!(error_handlers(), task, throw)
   owner
 end
 
@@ -25,18 +26,17 @@ end
 has_owner() = isa(task_local_storage(:task_owner), Task)
 
 "Request a parent task to remove the current task as child."
-function remove_owner(owner::Task)
-  curr_t = current_task()
-  command = Command() do
-    children = children_tasks()
-    i = findfirst(==(curr_t), children)
-    isnothing(i) && return
-    deleteat!(children, i)
-  end
-  task_local_storage(:task_owner, nothing)
-  send(owner, command)
+function remove_child(task::Task)
+  children = children_tasks()
+  i = findfirst(==(task), children)
+  isnothing(i) && return
+  deleteat!(children, i)
 end
 
+"""
+Shutdown all children of the current task.
+Returns a [`Condition`](@ref) which can be waited on.
+"""
 function shutdown_children()
   tasks = children_tasks()
   cond = shutdown(tasks)

@@ -22,21 +22,6 @@ include("task_utils.jl")
   @test unwrap_error(execute(Returns(nothing), t)) == ConcurrencyError(RECEIVER_DEAD)
 
   @testset "Ping-pong example" begin
-    function test_capture_stdout(f, captured)
-      ret = nothing
-      mktemp() do _, io
-        withenv("JULIA_DEBUG" => "") do
-          redirect_stdout(io) do
-            ret = f()
-            [sleep(0.1) for _ in 1:5]
-          end
-          seekstart(io)
-          @test read(io, String) == captured
-        end
-      end
-      ret
-    end
-
     function pingpong(i)
       c = isodd(i) ? 'i' : 'o'
       println("P$(c)ng! ($i)")
@@ -44,7 +29,9 @@ include("task_utils.jl")
     end
 
     t = @spawn :looped nothing
-    test_capture_stdout(() -> execute(pingpong, t, 1), "Ping! (1)\n")
+    ret, captured = capture_stdout(() -> execute(pingpong, t, 1))
+    @test unwrap(fetch(ret)) == 2
+    @test captured == "Ping! (1)\n"
 
     t2 = @spawn :looped nothing
 
@@ -55,14 +42,15 @@ include("task_utils.jl")
       execute(pingpong, iseven(i) ? t : t2, i; continuation = pingpong_continuation)
     end
 
-    fut = test_capture_stdout(() -> execute(() -> Base.invokelatest(execute, pingpong, t2, 1; continuation = pingpong_continuation), t),
+    fut, captured = capture_stdout(() -> execute(() -> Base.invokelatest(execute, pingpong, t2, 1; continuation = pingpong_continuation), t))
+    @test captured ==
       """
       Ping! (1)
       Pong! (2)
       Ping! (3)
       Pong! (4)
       Ping! (5)
-      """)
+      """
     @test !iserror(fetch(fut))
     shutdown_children()
   end

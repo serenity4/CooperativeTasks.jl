@@ -31,13 +31,14 @@ function handle_error(exc::PropagatedTaskError)
   f(exc)
 end
 
-error_handler(child::Task) = get(error_handlers(), child, throw)
+error_handler(child::Task) = error_handlers()[child]
 
 function propagate_error(exc::TaskError)
-  has_owner() || return @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
-  task = owner()
-  remove_owner(task)
-  send(task, Command(handle_error, PropagatedTaskError(exc)))
+  if !has_owner()
+    # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
+    return @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
+  end
+  send(owner(), Command(handle_error, PropagatedTaskError(exc)))
 end
 
 function try_execute(f)
@@ -50,48 +51,48 @@ function try_execute(f)
     manage_critical_messages()
     propagate_error(TaskError(exc, catch_backtrace()))
     schedule_shutdown()
-    exc isa InterruptException
+    isa(exc, InterruptException)
   end
 end
 
-function shutdown_on_failure(tasks)
-  for task in tasks
-    if state(task) == DEAD
-      wait(shutdown(tasks))
-      return true
-    end
-  end
-  false
-end
-
-function monitor_children(period::Real = 0.001; allow_failures = true)
+function monitor_children(period::Real = 0.001; allow_failures = false)
   tasks = children_tasks()
+  isempty(tasks) && error("No children tasks to monitor")
   handlers = error_handlers()
-
   err_handler = Base.Fix1(showerror, stdout)
-
   for task in tasks
     set!(handlers, task, err_handler)
   end
 
+  interrupted = false
   try
     wait_timeout(Inf, period) do
       try
         manage_messages()
-        !allow_failures && shutdown_on_failure(tasks) && return true
+        !allow_failures && any(state(task) == DEAD for task in tasks) && return true
         shutdown_scheduled() && return true
         all(istaskdone, tasks)
       catch e
-        isa(e, InterruptException) || rethrow()
-        true
+        if isa(e, InterruptException)
+          interrupted = true
+        else
+          wait(shutdown(tasks))
+          rethrow()
+        end
       end
     end
   catch e
-    isa(e, InterruptException) || rethrow()
-    shutdown_children()
+    if isa(e, InterruptException)
+      interrupted = true
+    else
+      wait(shutdown(tasks))
+      rethrow()
+    end
   end
   shutdown_scheduled() && shutdown()
-  nothing
+  # Make sure no children outlives the monitoring parent unless explicitly interrupted (which indicates monitoring might be resumed later).
+  !interrupted && !all(istaskdone, tasks) && wait(shutdown(tasks))
+  all(istaskdone, tasks)
 end
 
 function istasksuccessful(task::Task)

@@ -7,3 +7,18 @@ function task_owner(t::Task)
   tls = Base.get_task_tls(t)
   get(tls, :task_owner, nothing)
 end
+
+function capture_stdout(f)
+  ret = captured = nothing
+  mktemp() do _, io
+    withenv("JULIA_DEBUG" => "") do
+      redirect_stdout(io) do
+        ret = f()
+        [sleep(0.1) for _ in 1:5]
+      end
+      seekstart(io)
+      captured = read(io, String)
+    end
+  end
+  ret, captured
+end

@@ -7,13 +7,13 @@ macro spawn(mode, ex)
     # Note: this is not concurrent, be careful to not schedule the task for execution before we are done with `tls`.
     tls = Base.get_task_tls(task)
     tls[:task_owner] = current_task()
+    set!(error_handlers(), task, throw)
     tls[:mpi_channel] = Channel{Message}(Inf)
     tls[:mpi_task_states] = dictionary([current_task() => ALIVE])
     set_task_state(task, ALIVE)
 
     # List spawned task as child of the current task.
     push!(children_tasks(), task)
-
 
     # Allow task to run on any OS thread.
     task.sticky = false

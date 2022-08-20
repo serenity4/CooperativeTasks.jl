@@ -81,7 +81,7 @@ function reset_task_state()
 end
 
 function reset_all()
-  shutdown_children()
+  wait(shutdown_children())
   manage_messages()
   reset_task_state()
 end
