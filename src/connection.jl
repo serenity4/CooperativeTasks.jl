@@ -31,7 +31,7 @@ connection_state(peer::Task) = @something(connection(peer), return nothing).stat
 function set_connection_state(peer::Task, state::ConnectionState)
   conn = connection(peer)
   isnothing(conn) && return
-  set!(connections(), peer, @set conn.state = state)
+  set!(connections(), peer, ConnectionState(state.peer, state.initiated_by_peer, state))
 end
 
 struct ConnectionRequest end

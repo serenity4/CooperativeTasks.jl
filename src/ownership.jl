@@ -40,7 +40,7 @@ Returns a [`Condition`](@ref) which can be waited on.
 function shutdown_children()
   tasks = children_tasks()
   cond = shutdown(tasks)
-  empty!(children_tasks())
+  empty!(tasks)
   cond
 end
 

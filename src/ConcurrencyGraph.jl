@@ -1,7 +1,5 @@
 module ConcurrencyGraph
 
-using Accessors: @set
-using Graphs
 using Dictionaries
 using Base: RefValue
 using UUIDs: uuid4, UUID
@@ -21,6 +19,7 @@ include("error.jl")
 include("ownership.jl")
 include("execution.jl")
 include("connection.jl")
+# include("ack.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
@@ -41,6 +40,8 @@ export
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
 
   call, execute, tryexecute, Future, tryfetch, reset_all, istasksuccessful,
+
+  TaskGroup,
 
   @spawn
 end

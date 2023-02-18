@@ -35,15 +35,17 @@ connections() = get!(Dictionary{Task,Connection}, task_local_storage(), :mpi_con
 task_states() = get!(Dictionary{Task,TaskState}, task_local_storage(), :mpi_task_states)::Dictionary{Task,TaskState}
 known_tasks() = keys(task_states())
 
-set_task_state(task::Task, state::TaskState) = set!(task_states(), task, state)
+function set_task_state(task::Task, state::TaskState)
+  set!(task_states(), task, state)
+  state
+end
+
 function state(task::Task)
   st = get(task_states(), task, nothing)
   if isnothing(st)
     set_task_state(task, istaskdone(task) ? DEAD : ALIVE)
-    ALIVE
   elseif st == ALIVE && istaskdone(task)
     set_task_state(task, DEAD)
-    DEAD
   else
     st
   end
