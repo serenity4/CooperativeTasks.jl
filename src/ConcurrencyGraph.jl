@@ -4,6 +4,7 @@ using Dictionaries
 using Base: RefValue
 using UUIDs: uuid4, UUID
 using Reexport
+@reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 
 uuid() = uuid4()
@@ -30,8 +31,8 @@ export
 
   Cancel, cancel, shutdown,
 
-  ExecutionMode,
-  LoopExecution,
+  ExecutionMode, SingleExecution, LoopExecution,
+  spawn, SpawnOptions, @spawn,
   Command,
 
   own, task_owner, children_tasks, shutdown_children,
@@ -41,7 +42,5 @@ export
 
   call, execute, tryexecute, Future, tryfetch, reset_all, istasksuccessful,
 
-  TaskGroup,
-
-  @spawn
+  TaskGroup
 end

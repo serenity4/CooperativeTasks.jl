@@ -63,6 +63,7 @@ Spawn the function `f` on a new task.
 See also: [`SpawnOptions`](@ref)
 """
 function spawn(f, options::SpawnOptions)
+  check_validity(options)
   task = Task(options.execution_mode(f))
 
   # Note: this is not concurrent, be careful to not schedule the task for execution before we are done with `tls`.
@@ -84,4 +85,11 @@ function spawn(f, options::SpawnOptions)
 
   schedule(task)
   task
+end
+
+function check_validity(options::SpawnOptions)
+  if !isnothing(options.start_threadid)
+    options.start_threadid < 1 && throw(ArgumentError("If provided, the start thread ID must be ≥ 1."))
+    options.start_threadid > nthreads() && error("A start thread ID of $(options.start_threadid) was provided, but only $(nthreads()) are available.")
+  end
 end
