@@ -9,7 +9,7 @@ Base.@kwdef struct SpawnOptions
   """
   execution_mode::Union{LoopExecution,SingleExecution} = SingleExecution()
   """
-  Optional thread ID to start the task on.
+  Optional 1-based thread ID to start the task on.
 
   If task migration is disabled, then the task will execute on this thread during its entire lifespan.
   If set to `nothing` (default), then the starting thread is the same as the thread launching the task.
@@ -77,7 +77,7 @@ function spawn(f, options::SpawnOptions)
   push!(children_tasks(), task)
 
   task.sticky = !options.allow_task_migration
-  !isnothing(options.start_threadid) && ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, options.start_threadid)
+  !isnothing(options.start_threadid) && ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, options.start_threadid - 1)
 
   # Support use with `@sync` blocks.
   @eval $(Expr(:islocal, SYNC_VARNAME)) && put!($SYNC_VARNAME, task)
