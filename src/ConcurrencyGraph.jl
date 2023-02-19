@@ -34,7 +34,7 @@ export
   LoopExecution,
   Command,
 
-  own, owner, children_tasks, shutdown_children,
+  own, task_owner, children_tasks, shutdown_children,
 
   TaskError, PropagatedTaskError, ConcurrencyError, monitor_children,
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,

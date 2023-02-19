@@ -78,6 +78,7 @@ function reset_task_state()
   empty!(children_tasks())
   empty!(error_handlers())
   empty!(futures())
+  task_local_storage(:task_owner, nothing)
   task_local_storage(:mpi_channel, Channel{Message}(Inf))
   nothing
 end
