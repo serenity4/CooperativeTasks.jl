@@ -1,7 +1,7 @@
 name = "ConcurrencyGraph"
 uuid = "cf8c6370-217a-4736-8ebc-77346b711d73"
 authors = ["Cédric BELMANT"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
