@@ -37,7 +37,10 @@ DEAD
 
 shutdown_scheduled() = get!(task_local_storage(), TLS_SHUTDOWN_SCHEDULED, false)::Bool
 
-schedule_shutdown() = task_local_storage(TLS_SHUTDOWN_SCHEDULED, true)
+function schedule_shutdown()
+  # @debug "Shutdown was scheduled on $(task_repr())\n$(sprint(showerror, ErrorException(""), backtrace(); context = :color => true))"
+  task_local_storage(TLS_SHUTDOWN_SCHEDULED, true)
+end
 
 channel() = get!(task_local_storage(), TLS_CHANNEL, Channel{Message}(Inf))::Channel{Message}
 

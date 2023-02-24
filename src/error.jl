@@ -56,7 +56,7 @@ function try_execute(f)
 end
 
 function monitor_children(period::Real = 0.001; allow_failures = false)
-  tasks = children_tasks()
+  tasks = copy(children_tasks())
   isempty(tasks) && error("No children tasks to monitor")
   handlers = error_handlers()
   err_handler = Base.Fix1(showerror, stdout)
@@ -89,7 +89,6 @@ function monitor_children(period::Real = 0.001; allow_failures = false)
       rethrow()
     end
   end
-  shutdown_scheduled() && shutdown()
   # Make sure no children outlives the monitoring parent unless explicitly interrupted (which indicates monitoring might be resumed later).
   !interrupted && !all(istaskdone, tasks) && wait(shutdown(tasks))
   all(istaskdone, tasks)

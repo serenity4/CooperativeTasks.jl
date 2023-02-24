@@ -29,7 +29,7 @@ export
   send, trysend,
   manage_messages,
 
-  Cancel, cancel, shutdown,
+  Cancel, cancel, shutdown, schedule_shutdown, shutdown_scheduled,
 
   ExecutionMode, SingleExecution, LoopExecution,
   spawn, SpawnOptions, @spawn,

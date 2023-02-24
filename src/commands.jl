@@ -49,11 +49,8 @@ struct Command
   args::Any
   kwargs::Any
   continuation::Any
-  Command(f, args...; continuation = default_continuation, kwargs...) = new(f, args, kwargs, continuation)
+  Command(f, args...; continuation = nothing, kwargs...) = new(f, args, kwargs, continuation)
 end
-
-default_continuation(::Result, args...) = Returns(nothing)
-
 
 function trysend(task::Task, command::Message{Command})::Result{Future,ConcurrencyError}
   !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
@@ -69,11 +66,11 @@ send(args...; kwargs...) = unwrap(trysend(args...; kwargs...))
 execute(args...; kwargs...) = unwrap(tryexecute(args...; kwargs...))
 
 function process_message(command::Message{Command})
-  ret = ReturnedValue(process_command(command.payload))
+  ret = ReturnedValue(execute(command.payload))
   trysend(command.from, Message(ret, command.uuid; command.critical))
 end
 
-function process_command(command::Command)::Result{Any,Union{ConcurrencyError, TaskError}}
+function execute(command::Command)::Result{Any,Union{ConcurrencyError, TaskError}}
   try
     Base.invokelatest(command.f, command.args...; command.kwargs...)
   catch e
@@ -88,6 +85,11 @@ end
 
 function process_message(m::Message{ReturnedValue})
   d = futures()
+  if state(m.from) == DEAD
+    @debug "Received a command from a dead task; it will not be processed"
+    haskey(d, m.uuid) && delete!(d, m.uuid)
+    return
+  end
   val = get(d, m.uuid, nothing)
   if val === Discard()
     delete!(d, m.uuid)
@@ -133,11 +135,10 @@ function Base.wait(cond::Condition; timeout::Real = Inf, sleep_time::Real = 0)
   if isnothing(cond.passed)
     result = wait_timeout(timeout, sleep_time) do
       manage_messages()
-      shutdown_scheduled() && return nothing
+      shutdown_scheduled() && return true
       cond.test()
     end
-    isnothing(result) && return false
-    cond.passed = result
+    cond.passed = shutdown_scheduled() ? cond.test() : result
   end
   cond.passed
 end

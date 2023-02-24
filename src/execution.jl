@@ -28,12 +28,19 @@ function has_activity(state::ExecutionState)
 end
 
 "Execute a function once, then return."
-struct SingleExecution <: ExecutionMode end
+Base.@kwdef struct SingleExecution <: ExecutionMode
+  """
+  Whether to call `shutdown()` on this task after the loop finishes executing.
+
+  Can be useful in contexts where [`SingleExecution`](@ref) and [`LoopExecution`](@ref) are mixed together, to avoid shutting down multiple times.
+  """
+  shutdown::Bool = true
+end
 
 function (exec::SingleExecution)(f = Returns(nothing))
   function _exec()
     try_execute(f)
-    shutdown_children()
+    shutdown()
   end
 end
 
@@ -53,8 +60,14 @@ task duties as required in the context of this library.
 struct LoopExecution <: ExecutionMode
   period::Union{Nothing,Float64}
   state::ExecutionState
+  """
+  Whether to call `shutdown()` on this task after the loop finishes executing.
+
+  Can be useful in contexts where [`SingleExecution`](@ref) and [`LoopExecution`](@ref) are mixed together, to avoid shutting down multiple times.
+  """
+  shutdown::Bool
 end
-LoopExecution(period) = LoopExecution(period, ExecutionState())
+LoopExecution(period; shutdown = true) = LoopExecution(period, ExecutionState(), shutdown)
 
 function (exec::LoopExecution)(f = Returns(nothing))
   function _exec()
@@ -65,9 +78,8 @@ function (exec::LoopExecution)(f = Returns(nothing))
       t0 = time()
 
       try_execute(f)
-      shutdown_scheduled() && @goto out
-
       try_execute(manage_messages)
+      shutdown_scheduled() && @goto out
 
       if isnothing(exec.period)
         yield()
@@ -92,16 +104,18 @@ function (exec::LoopExecution)(f = Returns(nothing))
     end
 
     @label out
-    shutdown()
+    exec.shutdown && shutdown()
   end
 end
 
 function shutdown()
-  schedule_shutdown() # in case it was not already set as scheduled
-  shutdown_children()
+  !shutdown_scheduled() && schedule_shutdown() # in case it was not already set as scheduled
+  @debug "Shutting down on $(task_repr())"
+  cond = shutdown_children()
   for t in known_tasks()
     state(t) ≠ DEAD && signal_shutdown(t)
   end
+  cond
 end
 
 signal_shutdown(task::Task) = tryexecute(set_task_state, task, current_task(), DEAD)

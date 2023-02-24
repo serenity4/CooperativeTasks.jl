@@ -23,11 +23,12 @@ See [`cancel`](@ref).
 function shutdown(task::Task)
   !istaskstarted(task) && return Condition(Returns(true))
   istaskdone(task) && return Condition(Returns(true))
+  @debug "Cancelling task $(task_repr(task)) from $(task_repr())"
   cancel(task)
   Condition(() -> state(task) == DEAD)
 end
 
-cancel(task::Task) = trysend(task, Command(schedule_shutdown))
+cancel(task::Task) = trysend(task, Command(schedule_shutdown); critical = true)
 
 function wait_timeout(test, timeout::Real, sleep_time::Real)
   !iszero(sleep_time) && sleep_time < 0.001 && @warn "Sleep time is less than the granularity of `sleep` ($sleep_time < 0.001)"
@@ -42,7 +43,7 @@ end
 process_message(@nospecialize(message::Message)) = @warn("Ignoring message of unidentified type $(typeof(message)).")
 
 function manage_messages()
-  read_messages()
+  manage_critical_messages()
   shutdown_scheduled() && return
   process_messages()
 end
@@ -51,8 +52,9 @@ function process_messages()
   messages = unprocessed_messages()
   while !isempty(messages)
     m = pop!(messages)
-    set_task_state(m.from, ALIVE)
+    state(m.from) == UNRESPONSIVE && set_task_state(m.from, ALIVE)
     process_message(m)
+    shutdown_scheduled() && break
   end
 end
 
@@ -71,16 +73,15 @@ function manage_critical_messages()
   end
 end
 
+task_repr(task = current_task()) = string(Base.text_colors[:yellow], task, Base.text_colors[:default])
+
 function read_messages()
   ch = channel()
   to_process = unprocessed_messages()
 
   while isready(ch)
-    @debug "Current task: "
-    @debug "$(Base.text_colors[:yellow])$(current_task())\n$(Base.text_colors[:default])"
-    m = next_message()
-    @debug "Message received: $m\n"
-    m.ack[] && trysend(m.from, Ack(m.uuid))
+    m = next_message()::Message
+    @debug "Message (of type $(nameof(typeof(m.payload)))) received on $(task_repr()) from $(task_repr(m.from))" * ( m.critical ? " (critical)" : "")
     push!(to_process, m)
   end
 

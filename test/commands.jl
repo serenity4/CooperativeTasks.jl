@@ -54,4 +54,28 @@ include("task_utils.jl")
     @test !iserror(fetch(fut))
     shutdown_children()
   end
+
+  @testset "Proper shutdown while fetching a future" begin
+    t = @spawn :looped nothing
+    t2 = @spawn :single begin
+      sleep(0.5)
+      fetch(execute(() -> sleep(0.1), t))
+    end
+    sleep(0.1)
+    @test wait(shutdown(t))
+    @test istasksuccessful(t)
+    wait(t2)
+    @test istasksuccessful(t2)
+    @test_throws "RECEIVER_DEAD" manage_messages()
+
+    t = @spawn :looped nothing
+    t2 = @spawn :single fetch(execute(() -> sleep(0.5), t))
+    sleep(0.1)
+    @test_throws "SHUTDOWN_RECEIVED" wait(shutdown(t2))
+    sleep(0.1)
+    @test istasksuccessful(t2)
+    manage_messages()
+    @test wait(shutdown(t))
+    @test istasksuccessful(t)
+  end
 end;
