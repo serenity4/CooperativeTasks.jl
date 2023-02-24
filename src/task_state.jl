@@ -1,6 +1,20 @@
+tls_key(x) = Symbol(:ConcurrencyGraph, '_', x)
+
+const TLS_SHUTDOWN_SCHEDULED = tls_key(:mpi_shutdown_scheduled)
+const TLS_CHANNEL = tls_key(:mpi_channel)
+const TLS_PENDING_MESSAGES = tls_key(:mpi_pending_messages)
+const TLS_CONNECTIONS = tls_key(:mpi_connections)
+const TLS_TASK_STATES = tls_key(:mpi_task_states)
+const TLS_TASK_OWNER = tls_key(:mpi_task_owner)
+const TLS_UNPROCESSED_MESSAGES = tls_key(:mpi_unprocessed_messages)
+const TLS_ACKS = tls_key(:mpi_acks)
+const TLS_CHILDREN_TASKS = tls_key(:mpi_children_tasks)
+const TLS_ERROR_HANDLERS = tls_key(:mpi_error_handlers)
+const TLS_FUTURES = tls_key(:mpi_futures)
+
 function channel(task::Task)
   tls = Base.get_task_tls(task)
-  val = get(tls, :mpi_channel, nothing)
+  val = get(tls, TLS_CHANNEL, nothing)
   isnothing(val) && error("A MPI channel must be created on the target task before sending or receiving any messages.")
   val::Channel{Message}
 end
@@ -21,19 +35,22 @@ UNRESPONSIVE
 "The task is no longer running; either it has signalled its death or it is marked as done."
 DEAD
 
-shutdown_scheduled() = get!(task_local_storage(), :mpi_shutdown_scheduled, false)::Bool
+shutdown_scheduled() = get!(task_local_storage(), TLS_SHUTDOWN_SCHEDULED, false)::Bool
 
-schedule_shutdown() = task_local_storage(:mpi_shutdown_scheduled, true)
+schedule_shutdown() = task_local_storage(TLS_SHUTDOWN_SCHEDULED, true)
 
-channel() = get!(task_local_storage(), :mpi_channel, Channel{Message}(Inf))::Channel{Message}
+channel() = get!(task_local_storage(), TLS_CHANNEL, Channel{Message}(Inf))::Channel{Message}
 
-pending_messages() = get!(PendingMessages, task_local_storage(), :mpi_pending_messages)::PendingMessages
+pending_messages() = get!(PendingMessages, task_local_storage(), TLS_PENDING_MESSAGES)::PendingMessages
 
-connections() = get!(Dictionary{Task,Connection}, task_local_storage(), :mpi_connections)::Dictionary{Task,Connection}
+connections() = get!(Dictionary{Task,Connection}, task_local_storage(), TLS_CONNECTIONS)::Dictionary{Task,Connection}
 
 # Prefer using `state(::Task)` rather than iterating values.
-task_states() = get!(Dictionary{Task,TaskState}, task_local_storage(), :mpi_task_states)::Dictionary{Task,TaskState}
+task_states() = get!(Dictionary{Task,TaskState}, task_local_storage(), TLS_TASK_STATES)::Dictionary{Task,TaskState}
 known_tasks() = keys(task_states())
+
+task_owner() = task_local_storage(TLS_TASK_OWNER)::Union{Task,Nothing}
+set_task_owner(value) = task_local_storage(TLS_TASK_OWNER, value)::Union{Task,Nothing}
 
 function set_task_state(task::Task, state::TaskState)
   set!(task_states(), task, state)
@@ -51,17 +68,17 @@ function state(task::Task)
   end
 end
 
-unprocessed_messages() = get!(Vector{Message}, task_local_storage(), :mpi_unprocessed_messages)::Vector{Message}
+unprocessed_messages() = get!(Vector{Message}, task_local_storage(), TLS_UNPROCESSED_MESSAGES)::Vector{Message}
 
-acks() = get!(Dictionary{UUID,Bool}, task_local_storage(), :mpi_acks)::Dictionary{UUID,Bool}
+acks() = get!(Dictionary{UUID,Bool}, task_local_storage(), TLS_ACKS)::Dictionary{UUID,Bool}
 
 ack_received(uuid::UUID) = get(acks(), uuid, false)
 
-children_tasks() = get!(Vector{Task}, task_local_storage(), :children_tasks)::Vector{Task}
+children_tasks() = get!(Vector{Task}, task_local_storage(), TLS_CHILDREN_TASKS)::Vector{Task}
 
-error_handlers() = get!(Dictionary{Task,Any}, task_local_storage(), :error_handlers)::Dictionary{Task,Any}
+error_handlers() = get!(Dictionary{Task,Any}, task_local_storage(), TLS_ERROR_HANDLERS)::Dictionary{Task,Any}
 
-futures() = get!(Dictionary{UUID,Any}, task_local_storage(), :futures)::Dictionary{UUID,Any}
+futures() = get!(Dictionary{UUID,Any}, task_local_storage(), TLS_FUTURES)::Dictionary{UUID,Any}
 
 function next_message()
   m = take!(channel())
@@ -78,8 +95,8 @@ function reset_task_state()
   empty!(children_tasks())
   empty!(error_handlers())
   empty!(futures())
-  task_local_storage(:task_owner, nothing)
-  task_local_storage(:mpi_channel, Channel{Message}(Inf))
+  task_local_storage(TLS_TASK_OWNER, nothing)
+  task_local_storage(TLS_CHANNEL, Channel{Message}(Inf))
   nothing
 end
 

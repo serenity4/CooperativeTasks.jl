@@ -1,7 +1,7 @@
 function set_task_owner(owner::Task)
   owner = task_owner()
   !isnothing(owner) && trysend(owner, Command(remove_child, current_task()))
-  task_local_storage(:task_owner, owner)
+  task_local_storage(TLS_TASK_OWNER, owner)
   set!(error_handlers(), task, throw)
   owner
 end
@@ -12,8 +12,6 @@ function own(task::Task)
   push!(children_tasks(), task)
   tryexecute(set_task_owner, task, curr_t; critical = true)
 end
-
-task_owner() = task_local_storage(:task_owner)::Union{Task,Nothing}
 
 has_owner() = !isnothing(task_owner())
 

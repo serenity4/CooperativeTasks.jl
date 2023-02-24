@@ -1,5 +1,5 @@
 using ConcurrencyGraph, Test
-using ConcurrencyGraph: DEAD, ALIVE, state, task_states
+using ConcurrencyGraph: DEAD, ALIVE, state, task_states, TLS_CHILDREN_TASKS
 using Dictionaries
 
 include("task_utils.jl")
@@ -27,7 +27,7 @@ include("task_utils.jl")
   @test wait(shutdown(t2[]))
   wait(t)
   @test istasksuccessful(t)
-  @test isempty(Base.get_task_tls(t)[:children_tasks])
+  @test isempty(Base.get_task_tls(t)[TLS_CHILDREN_TASKS])
 
   # Situation 2:
   # Same as situation 1, but we test that the monitoring stops at the death of task 1.
@@ -41,7 +41,7 @@ include("task_utils.jl")
   @test wait(shutdown(t1[]))
   wait(t)
   @test istasksuccessful(t)
-  @test isempty(Base.get_task_tls(t)[:children_tasks])
+  @test isempty(Base.get_task_tls(t)[TLS_CHILDREN_TASKS])
 
   # Situation 3:
   # One of the tasks has failed before the monitoring even happened.
@@ -56,5 +56,5 @@ include("task_utils.jl")
   sleep(0.2)
   @test startswith(captured, "PropagatedTaskError")
   @test istasksuccessful(t)
-  @test isempty(Base.get_task_tls(t)[:children_tasks])
+  @test isempty(Base.get_task_tls(t)[TLS_CHILDREN_TASKS])
 end;
