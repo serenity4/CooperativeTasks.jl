@@ -25,7 +25,7 @@ include("connection.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
-@compile_traces verbose = false joinpath(@__DIR__, "precompilation_traces.jl")
+@compile_traces verbose = false joinpath(pkgdir(ConcurrencyGraph), "traces", "precompilation_traces.jl")
 
 export
   Message,
