@@ -1,5 +1,6 @@
 module ConcurrencyGraph
 
+using CompileTraces
 using Dictionaries
 using Base: RefValue
 using UUIDs: uuid4, UUID
@@ -23,6 +24,8 @@ include("connection.jl")
 # include("ack.jl")
 include("spawn.jl")
 include("taskgroup.jl")
+
+@compile_traces verbose = false joinpath(@__DIR__, "precompilation_traces.jl")
 
 export
   Message,
