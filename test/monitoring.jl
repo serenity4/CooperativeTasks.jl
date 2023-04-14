@@ -5,7 +5,7 @@ using Dictionaries
 include("task_utils.jl")
 
 @testset "Monitoring" begin
-  reset_all()
+  reset_mpi_state()
 
   t1 = Ref{Task}()
   t2 = Ref{Task}()

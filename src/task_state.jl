@@ -103,7 +103,7 @@ function reset_task_state()
   nothing
 end
 
-function reset_all()
+function reset_mpi_state()
   wait(shutdown_children())
   manage_messages()
   reset_task_state()

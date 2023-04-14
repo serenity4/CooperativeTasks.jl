@@ -4,7 +4,7 @@ using ConcurrencyGraph: children_tasks, Future, Condition
 include("task_utils.jl")
 
 @testset "Execution modes" begin
-  reset_all()
+  reset_mpi_state()
   t = @spawn nothing
   @test t in children_tasks()
   wait(t)
@@ -12,7 +12,7 @@ include("task_utils.jl")
   @test manage_messages() isa Any
 
   for exec in (LoopExecution(nothing), LoopExecution(0.01))
-    reset_all()
+    reset_mpi_state()
 
     # Normal operations.
     t = @spawn exec nothing

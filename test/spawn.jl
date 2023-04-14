@@ -7,7 +7,7 @@ include("task_utils.jl")
     @test_throws r"but only (.*) are available" spawn(Returns(nothing), SpawnOptions(start_threadid = 1000000000))
     @test_throws "≥ 1" spawn(Returns(nothing), SpawnOptions(start_threadid = 0))
 
-    reset_all()
+    reset_mpi_state()
 
     t = @spawn begin
         sleep(0.5)

@@ -4,7 +4,7 @@ using ConcurrencyGraph: children_tasks, Future
 include("task_utils.jl")
 
 @testset "Commands" begin
-  reset_all()
+  reset_mpi_state()
 
   t = @spawn :looped nothing
   fut = execute(() -> 1 + 1, t)
