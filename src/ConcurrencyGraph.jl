@@ -5,6 +5,8 @@ using Dictionaries
 using Base: RefValue
 using UUIDs: uuid4, UUID
 using Reexport
+using PrecompileTools
+using CompileTraces
 @reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 
@@ -25,7 +27,7 @@ include("connection.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
-@compile_traces verbose = false joinpath(pkgdir(ConcurrencyGraph), "traces", "precompilation_traces.jl")
+@setup_workload @compile_traces "precompilation_traces.jl"
 
 export
   Message,
