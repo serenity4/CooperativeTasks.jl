@@ -7,7 +7,7 @@ using UUIDs: uuid4, UUID
 using Reexport
 using PrecompileTools
 using CompileTraces
-using Forward
+using ForwardMethods
 @reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 

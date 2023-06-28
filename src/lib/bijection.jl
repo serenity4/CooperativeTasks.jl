@@ -47,7 +47,7 @@ function Dictionaries.sortkeys!(bmap::BijectiveMapping)
   sort!(bmap.backward)
 end
 
-@forward BijectiveMapping.forward (Base.pairs, Base.iterate)
+@forward_methods BijectiveMapping field = :forward Base.pairs Base.iterate(_, args...)
 
 function merge_unique!(dict, ds...)
   for d in ds

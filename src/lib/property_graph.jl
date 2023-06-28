@@ -6,7 +6,7 @@ end
 
 PropertyGraph{T,G,V,E}() where {T,G,V,E} = PropertyGraph{T,G,V,E}(G(), BijectiveMapping{T,V}(), BijectiveMapping{Edge{T},E}())
 
-@forward PropertyGraph.graph (Base.eltype, Graphs.edges, Graphs.edgetype, Graphs.inneighbors, Graphs.ne, Graphs.nv, Graphs.outneighbors, Graphs.vertices, Graphs.is_directed)
+@forward_methods PropertyGraph field = :graph Base.eltype Graphs.edges Graphs.edgetype Graphs.inneighbors(_, v) Graphs.ne Graphs.nv Graphs.outneighbors(_, v) Graphs.vertices Graphs.is_directed
 
 function Graphs.add_edge!(p::PropertyGraph{<:Any,<:Any,V,E}, edge::E) where {V,E}
   haskey(p.edge_properties, edge) && return false

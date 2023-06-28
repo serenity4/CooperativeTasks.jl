@@ -13,4 +13,4 @@ mutable struct TaskGroup
   end
 end
 
-@forward TaskGroup.tasks (Base.push!,)
+@forward_methods TaskGroup field = :tasks Base.push!(_, args...)
