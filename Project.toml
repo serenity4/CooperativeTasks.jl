@@ -1,11 +1,12 @@
 name = "ConcurrencyGraph"
 uuid = "cf8c6370-217a-4736-8ebc-77346b711d73"
 authors = ["Cédric BELMANT"]
-version = "0.2.3"
+version = "0.2.4"
 
 [deps]
 CompileTraces = "92d184ee-bd0d-43d0-b768-a20943f3d1e3"
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
+Forward = "e6853b8d-fd15-4ade-99cd-709dcd354015"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 ResultTypes = "08a2b407-ddc3-586a-afd6-c784ad1fffe2"

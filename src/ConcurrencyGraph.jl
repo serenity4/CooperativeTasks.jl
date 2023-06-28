@@ -7,12 +7,12 @@ using UUIDs: uuid4, UUID
 using Reexport
 using PrecompileTools
 using CompileTraces
+using Forward
 @reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 
 uuid() = uuid4()
 
-include("forward.jl")
 # include("lib/bijection.jl")
 # include("lib/property_graph.jl")
 
