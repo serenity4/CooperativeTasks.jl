@@ -1,7 +1,7 @@
 name = "ConcurrencyGraph"
 uuid = "cf8c6370-217a-4736-8ebc-77346b711d73"
 authors = ["Cédric BELMANT"]
-version = "0.2.4"
+version = "0.2.5"
 
 [deps]
 CompileTraces = "92d184ee-bd0d-43d0-b768-a20943f3d1e3"
