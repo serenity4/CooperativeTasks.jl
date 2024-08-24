@@ -54,6 +54,6 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using ConcurrencyGraph
-            DocMeta.setdocmeta!(ConcurrencyGraph, :DocTestSetup, :(using ConcurrencyGraph); recursive=true)
-            doctest(ConcurrencyGraph)'
+            using CooperativeTasks
+            DocMeta.setdocmeta!(CooperativeTasks, :DocTestSetup, :(using CooperativeTasks); recursive=true)
+            doctest(CooperativeTasks)'

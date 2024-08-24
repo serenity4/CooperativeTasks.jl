@@ -1,4 +1,4 @@
-module ConcurrencyGraph
+module CooperativeTasks
 
 using CompileTraces
 using Dictionaries

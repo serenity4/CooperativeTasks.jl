@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = ConcurrencyGraph
+CurrentModule = CooperativeTasks
 ```
 
-# ConcurrencyGraph
+# CooperativeTasks
 
-Documentation for [ConcurrencyGraph](https://github.com/serenity4/ConcurrencyGraph.jl).
+Documentation for [CooperativeTasks](https://github.com/serenity4/CooperativeTasks.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [ConcurrencyGraph]
+Modules = [CooperativeTasks]
 ```

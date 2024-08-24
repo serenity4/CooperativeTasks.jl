@@ -1,5 +1,5 @@
-using ConcurrencyGraph, Test
-using ConcurrencyGraph: DEAD, ALIVE, state, task_states, TLS_CHILDREN_TASKS
+using CooperativeTasks, Test
+using CooperativeTasks: DEAD, ALIVE, state, task_states, TLS_CHILDREN_TASKS
 using Dictionaries
 
 include("task_utils.jl")

@@ -1,4 +1,4 @@
-name = "ConcurrencyGraph"
+name = "CooperativeTasks"
 uuid = "cf8c6370-217a-4736-8ebc-77346b711d73"
 authors = ["Cédric BELMANT"]
 version = "0.2.5"

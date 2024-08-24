@@ -1,4 +1,4 @@
-using ConcurrencyGraph: TLS_TASK_OWNER
+using CooperativeTasks: TLS_TASK_OWNER
 
 """
 Retrieve the task owner by snooping at task-local state.

@@ -1,4 +1,4 @@
-using ConcurrencyGraph, Test
+using CooperativeTasks, Test
 
 @testset "Bijection" begin
   d = BijectiveMapping{Symbol,String}()

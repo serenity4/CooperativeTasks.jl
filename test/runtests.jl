@@ -1,4 +1,4 @@
-using ConcurrencyGraph
+using CooperativeTasks
 using Test, SafeTestsets
 
 testfile(filename) = joinpath(@__DIR__, filename)
@@ -20,7 +20,7 @@ function test(file::AbstractString)
   end
 end
 
-test(files::AbstractVector) = @testset "ConcurrencyGraph.jl" begin
+test(files::AbstractVector) = @testset "CooperativeTasks.jl" begin
   foreach(test, files)
 end
 

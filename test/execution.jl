@@ -1,5 +1,5 @@
-using ConcurrencyGraph, Test
-using ConcurrencyGraph: children_tasks, Future, Condition
+using CooperativeTasks, Test
+using CooperativeTasks: children_tasks, Future, Condition
 
 include("task_utils.jl")
 

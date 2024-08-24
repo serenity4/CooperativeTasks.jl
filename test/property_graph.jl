@@ -1,4 +1,4 @@
-using Test, ConcurrencyGraph, Graphs
+using Test, CooperativeTasks, Graphs
 
 struct LabeledEdge
   src::Symbol

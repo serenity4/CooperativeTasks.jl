@@ -1,16 +1,16 @@
-using ConcurrencyGraph
+using CooperativeTasks
 using Documenter
 
-DocMeta.setdocmeta!(ConcurrencyGraph, :DocTestSetup, :(using ConcurrencyGraph); recursive=true)
+DocMeta.setdocmeta!(CooperativeTasks, :DocTestSetup, :(using CooperativeTasks); recursive=true)
 
 makedocs(;
-    modules=[ConcurrencyGraph],
+    modules=[CooperativeTasks],
     authors="Cédric BELMANT",
-    repo="https://github.com/serenity4/ConcurrencyGraph.jl/blob/{commit}{path}#{line}",
-    sitename="ConcurrencyGraph.jl",
+    repo="https://github.com/serenity4/CooperativeTasks.jl/blob/{commit}{path}#{line}",
+    sitename="CooperativeTasks.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://serenity4.github.io/ConcurrencyGraph.jl",
+        canonical="https://serenity4.github.io/CooperativeTasks.jl",
         assets=String[],
     ),
     pages=[
@@ -19,6 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/serenity4/ConcurrencyGraph.jl",
+    repo="github.com/serenity4/CooperativeTasks.jl",
     devbranch="main",
 )

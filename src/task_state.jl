@@ -1,4 +1,4 @@
-tls_key(x) = Symbol(:ConcurrencyGraph, '_', x)
+tls_key(x) = Symbol(:CooperativeTasks, '_', x)
 
 const TLS_SHUTDOWN_SCHEDULED = tls_key(:mpi_shutdown_scheduled)
 const TLS_CHANNEL = tls_key(:mpi_channel)

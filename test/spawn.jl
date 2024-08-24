@@ -1,5 +1,5 @@
-using ConcurrencyGraph, Test
-using ConcurrencyGraph: children_tasks
+using CooperativeTasks, Test
+using CooperativeTasks: children_tasks
 
 include("task_utils.jl")
 
