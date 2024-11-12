@@ -21,7 +21,7 @@ include("ownership.jl")
 include("execution.jl")
 include("spawn.jl")
 
-@setup_workload @compile_traces "precompilation_traces.jl"
+@compile_workload @compile_traces "precompilation_traces.jl"
 
 export
   Message, manage_messages, manage_critical_messages,
