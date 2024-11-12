@@ -89,6 +89,11 @@ end
 "Placeholder for a `Future` UUID to prevent any value from being stored for this `Future`."
 struct Discard end
 
+"""
+Operation waiting on another task to produce and return a value.
+
+The value is accessible using [`fetch`](@ref) and [`tryfetch`](@ref), with a timeout that may be set as a parameter.
+"""
 mutable struct Future
   uuid::UUID
   value::Ref{Any}
@@ -105,6 +110,9 @@ mutable struct Future
   end
 end
 
+"""
+Object that can be `wait`ed on that it successfully passes a certain condition.
+"""
 mutable struct Condition
   test::Any
   passed::Union{Nothing,Bool}
@@ -128,13 +136,31 @@ function poll(cond::Condition)
   cond.test() ? (cond.passed = true) : false
 end
 
-function tryfetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{TaskException,ExecutionError}}
+"""
+Fetch the value of the `future`, waiting at most `timeout` seconds if the value is not available yet.
+
+If `sleep_time` is nonzero, `sleep(sleep_time)` will be called while waiting.
+
+If an error occurs, or `timeout` seconds have passed without result, an exception will be returned.
+
+This performs the same as [`fetch`](@ref), but does not throw and wraps the returned value or exception into a `Result`.
+"""
+function tryfetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{TaskException,ExecutionError}}
+  future = unwrap(future)
   isdefined(future.value, 1) || return compute(future, timeout, sleep_time)
   future.value[]
 end
 
-tryfetch(ret::Result{Future}; timeout::Real = Inf, sleep_time::Real = 0) = tryfetch(unwrap(ret); timeout, sleep_time)
-Base.fetch(ret::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0) = unwrap(tryfetch(ret; timeout, sleep_time))
+tryfetch(future::Result{Future}; timeout::Real = Inf, sleep_time::Real = 0) = tryfetch(unwrap(future); timeout, sleep_time)
+
+"""
+Fetch the value of the `future`, waiting at most `timeout` seconds if the value is not available yet.
+
+If `sleep_time` is nonzero, `sleep(sleep_time)` will be called while waiting.
+
+If an error occurs, or `timeout` seconds have passed without result, an exception will be thrown.
+"""
+Base.fetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0) = unwrap(tryfetch(future; timeout, sleep_time))
 
 function compute(future::Future, timeout, sleep_time)::Result{Any,Union{TaskException,ExecutionError}}
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")

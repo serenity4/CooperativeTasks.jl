@@ -9,6 +9,9 @@ Status code used for communicating success, failures and possibly other intermed
   RECEIVER_DEAD = -2
 end
 
+"""
+Emitted when a task has failed, for a reason described with its `StatusCode` and an optional message.
+"""
 struct TaskException <: Exception
   msg::String
   code::StatusCode
@@ -39,6 +42,7 @@ function shutdown(task::Task)
   Condition(() -> state(task) == DEAD)
 end
 
+"Request the task to cancel its execution."
 cancel(task::Task) = trysend(task, Command(schedule_shutdown); critical = true)
 
 function wait_timeout(test, timeout::Real, sleep_time::Real)

@@ -34,8 +34,18 @@ UNRESPONSIVE
 "The task is no longer running; either it has signalled its death or it is marked as done."
 DEAD
 
+"""
+Return whether the current task is scheduled for shutdown with [`schedule_shutdown`](@ref).
+
+If this function returns true, the task is responsible for finishing any pending activity and shutting itself down.
+"""
 shutdown_scheduled() = get!(task_local_storage(), TLS_SHUTDOWN_SCHEDULED, false)::Bool
 
+"""
+Signal the current task to shut down.
+
+To check if a task received such a signal, use [`shutdown_scheduled`](@ref).
+"""
 function schedule_shutdown()
   # @debug "Shutdown was scheduled on $(task_repr())\n$(sprint(showerror, ErrorException(""), backtrace(); context = :color => true))"
   task_local_storage(TLS_SHUTDOWN_SCHEDULED, true)

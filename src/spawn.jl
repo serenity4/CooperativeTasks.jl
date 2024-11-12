@@ -3,9 +3,7 @@ Options for spawning tasks with [`spawn`](@ref).
 """
 Base.@kwdef struct SpawnOptions
   """
-  [`ExecutionMode`](@ref) used for running the task.
-
-  See [`LoopExecution`](@ref), [`SingleExecution`](@ref)
+  Specifies how the task should be run, via a [`SingleExecution`](@ref) or [`LoopExecution`](@ref) structure.
   """
   execution_mode::Union{LoopExecution,SingleExecution} = SingleExecution()
   """
@@ -20,9 +18,11 @@ Base.@kwdef struct SpawnOptions
   """
   start_threadid::Union{Nothing,Int} = nothing
   """
-  Allow tasks to migrate between Julia threads.
+  Disallow tasks to migrate between Julia threads (`false` by default).
 
-  This makes it reliable to use `Threads.threadid()` as an index from this task, for example enabling the pattern
+  When set to `false`, this corresponds to the behavior of `@async`, and when set to `true`, to the behavior of `Threads.@spawn`.
+
+  Preventing task migration enables the use of `Threads.threadid()` as an index from the spawned tasks. For example, consider the following pattern:
 
   ```julia
   const results = [Int[] for i in 1:Threads.nthreads()]
@@ -34,10 +34,11 @@ Base.@kwdef struct SpawnOptions
   push!(results[Threads.threadid()], rand())
   ```
 
-  Disabling this can be useful when e.g. C libraries rely on functions to be executed in the same thread in which
-  some library-defined context has been created, as can be the case for graphics API such as Vulkan or OpenGL.
+  This pattern requires `Threads.threadid()` to be constant over the entire lifespan of the tasks, which requires task migration to be disabled.
+
+  Disabling task migration can also be useful when e.g. C libraries rely on functions to be executed in the same thread in which some library-defined context has been created, as can be the case for graphics API such as Vulkan or OpenGL.
   """
-  allow_task_migration::Bool = true
+  disallow_task_migration::Bool = false
 end
 
 "Variable used for `Base.@sync` blocks."
@@ -54,13 +55,25 @@ end
 
 macro spawn(ex) :(@spawn :single $(esc(ex))) end
 
+"""
+    @spawn [options] \$ex
+    @spawn begin ... end
+    @spawn :single begin ... end
+    @spawn :looped begin ... end
+
+Convenience macro to spawn a task via [`spawn`](@ref), defining a closure over `ex` as the function to be executed by the task.
+"""
+var"@spawn"
+
 execution_mode(mode::Symbol) = mode == :single ? SingleExecution() : mode == :looped ? LoopExecution(nothing) : error("Unknown execution mode '$mode'")
-execution_mode(mode::ExecutionMode) = mode
+execution_mode(mode::Union{SingleExecution, LoopExecution}) = mode
 
 """
-Spawn the function `f` on a new task.
+Spawn a new task executing the function `f`.
 
-See also: [`SpawnOptions`](@ref)
+!!! note
+    Depending on the `execution_mode` parameter of the provided [`SpawnOptions`](@ref),
+    `f()` may be executed multiple times.
 """
 function spawn(f, options::SpawnOptions)
   check_validity(options)
@@ -77,7 +90,7 @@ function spawn(f, options::SpawnOptions)
   # List spawned task as child of the current task.
   push!(owned_tasks(), task)
 
-  task.sticky = !options.allow_task_migration
+  task.sticky = options.disallow_task_migration
   !isnothing(options.start_threadid) && ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, options.start_threadid - 1)
 
   # Support use with `@sync` blocks.

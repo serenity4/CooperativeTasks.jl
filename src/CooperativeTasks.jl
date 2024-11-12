@@ -1,5 +1,6 @@
 module CooperativeTasks
 
+using DocStringExtensions
 using CompileTraces
 using Dictionaries
 using Base: RefValue
@@ -9,6 +10,26 @@ using PrecompileTools
 using CompileTraces
 @reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
+
+@template FUNCTIONS =
+  """
+  $(DOCSTRING)
+  $(METHODLIST)
+  """
+
+@template (METHODS, MACROS) =
+  """
+  $(DOCSTRING)
+  $(TYPEDSIGNATURES)
+  """
+
+@template TYPES =
+  """
+  $(DOCSTRING)
+  $(TYPEDEF)
+  $(TYPEDFIELDS)
+  """
+
 
 uuid() = uuid4()
 
@@ -32,12 +53,12 @@ export
 
   Command, execute, tryexecute,
 
-  Future, tryfetch,
+  Future, fetch, tryfetch,
 
   own, task_owner, owned_tasks, shutdown_owned_tasks, monitor_owned_tasks,
 
   spawn, SpawnOptions, @spawn,
-  ExecutionMode, SingleExecution, LoopExecution,
+  SingleExecution, LoopExecution,
 
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
   ExecutionError, PropagatedTaskException, TaskException,

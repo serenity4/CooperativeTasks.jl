@@ -1,5 +1,3 @@
-abstract type ExecutionMode end
-
 struct Activity
   time::Float64
   duration::Float64
@@ -28,7 +26,7 @@ function has_activity(state::ExecutionState)
 end
 
 "Execute a function once, then return."
-Base.@kwdef struct SingleExecution <: ExecutionMode
+Base.@kwdef struct SingleExecution
   """
   Whether to call `shutdown()` on this task after the loop finishes executing.
 
@@ -57,7 +55,7 @@ to compute/return results to other tasks (see [`Future`](@ref)), and to cancel t
 This mode of execution is preferred over manual loops precisely for the ability to satisfy
 task duties as required in the context of this library.
 """
-struct LoopExecution <: ExecutionMode
+struct LoopExecution
   period::Union{Nothing,Float64}
   state::ExecutionState
   """

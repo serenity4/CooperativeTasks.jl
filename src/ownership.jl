@@ -25,7 +25,7 @@ end
 
 """
 Shutdown all children of the current task.
-Returns a [`Condition`](@ref) which can be waited on.
+Returns a `Condition` which can be waited on.
 """
 function shutdown_owned_tasks()
   tasks = owned_tasks()

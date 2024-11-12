@@ -30,7 +30,7 @@ include("task_utils.jl")
     @testset "Task migration" begin
         @assert nthreads() ≥ 2
         from = Int[]
-        t = spawn(SpawnOptions(start_threadid = 2, allow_task_migration = false, execution_mode = LoopExecution(0.001))) do
+        t = spawn(SpawnOptions(start_threadid = 2, disallow_task_migration = true, execution_mode = LoopExecution(0.001))) do
             push!(from, threadid())
         end
         sleep(0.5)
@@ -39,7 +39,7 @@ include("task_utils.jl")
 
         from = [Int[] for _ in 1:nthreads()]
         for i in 1:nthreads()
-            t = spawn(SpawnOptions(start_threadid = i, allow_task_migration = false, execution_mode = LoopExecution(0.001))) do
+            t = spawn(SpawnOptions(start_threadid = i, disallow_task_migration = true, execution_mode = LoopExecution(0.001))) do
                 push!(from[threadid()], i)
             end
         end

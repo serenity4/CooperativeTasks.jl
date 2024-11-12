@@ -12,10 +12,3 @@ Most of the functionality defined in this package relies on inter-task communica
 
 A core paradigm behind this functionality is the handling of concurrency via sequential operations.
 While certain procedures use parallel execution for speed, there are environments that are inherently concurrent but without the need to rely on parallelism. Databases are a good example of this; if one has a database exposed over a network, and multiple applications need to perform read and write operations on the contents of this database concurrently, the best solution is to asynchronously queue these requests and wait for a database server to process them. It is a lot easier to request a unit to carry out a series of operations than it is to concurrently execute them safely. This shifts the burden of concurrency safety concerns to the queuing of requests instead of their execution, which is significantly easier.
-
-```@index
-```
-
-```@autodocs
-Modules = [CooperativeTasks]
-```
