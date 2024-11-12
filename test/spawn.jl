@@ -1,5 +1,5 @@
 using CooperativeTasks, Test
-using CooperativeTasks: children_tasks
+using CooperativeTasks: owned_tasks
 
 include("task_utils.jl")
 
@@ -7,7 +7,7 @@ include("task_utils.jl")
     @test_throws r"but only (.*) are available" spawn(Returns(nothing), SpawnOptions(start_threadid = 1000000000))
     @test_throws "≥ 1" spawn(Returns(nothing), SpawnOptions(start_threadid = 0))
 
-    reset_mpi_state()
+    reset()
 
     t = @spawn begin
         sleep(0.5)
@@ -16,7 +16,7 @@ include("task_utils.jl")
     sleep(0.1)
     @test istaskstarted(t)
     @test !istaskdone(t)
-    @test t in children_tasks()
+    @test t in owned_tasks()
     @test task_owner(t) == current_task()
     wait(t)
     @test_throws PropagatedTaskException manage_messages()
@@ -34,7 +34,7 @@ include("task_utils.jl")
             push!(from, threadid())
         end
         sleep(0.5)
-        @test wait(shutdown_children())
+        @test wait(shutdown_owned_tasks())
         @test all(==(2), from)
 
         from = [Int[] for _ in 1:nthreads()]
@@ -44,7 +44,7 @@ include("task_utils.jl")
             end
         end
         sleep(0.5)
-        @test wait(shutdown_children())
+        @test wait(shutdown_owned_tasks())
         @test all(allequal, from)
     end
 end;

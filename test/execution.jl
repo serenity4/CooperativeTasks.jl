@@ -1,32 +1,32 @@
 using CooperativeTasks, Test
-using CooperativeTasks: children_tasks, Future, Condition
+using CooperativeTasks: owned_tasks, Future, Condition
 
 include("task_utils.jl")
 
 @testset "Execution modes" begin
-  reset_mpi_state()
+  reset()
   t = @spawn nothing
-  @test t in children_tasks()
+  @test t in owned_tasks()
   wait(t)
   @test istasksuccessful(t)
   @test manage_messages() isa Any
 
   for exec in (LoopExecution(nothing), LoopExecution(0.01))
-    reset_mpi_state()
+    reset()
 
     # Normal operations.
     t = @spawn exec nothing
-    @test t in children_tasks()
+    @test t in owned_tasks()
     sleep(0.1)
     @test manage_messages() isa Any
     @test !istaskdone(t)
-    shutdown_children()
+    shutdown_owned_tasks()
     wait(t)
     @test istasksuccessful(t)
 
     # Graceful error handling.
     t = @spawn exec error("Nooo!")
-    @test t in children_tasks()
+    @test t in owned_tasks()
     sleep(0.1)
     @test_throws PropagatedTaskException manage_messages() isa Any
     @test istasksuccessful(t)

@@ -1,4 +1,4 @@
-using CooperativeTasks: TLS_TASK_OWNER
+using CooperativeTasks: TLS_TASK_OWNER, reset
 
 """
 Retrieve the task owner by snooping at task-local state.

@@ -108,10 +108,23 @@ function (exec::LoopExecution)(f = Returns(nothing))
   end
 end
 
+function try_execute(f)
+  try
+    f()
+  catch exc
+    # Manage messages marked as critical which indicate e.g.
+    # a change of ownership or other information that can
+    # affect how the error is handled.
+    manage_critical_messages()
+    propagate_error(ExecutionError(exc, catch_backtrace()))
+    schedule_shutdown()
+  end
+end
+
 function shutdown()
   !shutdown_scheduled() && schedule_shutdown() # in case it was not already set as scheduled
   @debug "Shutting down on $(task_repr())"
-  cond = shutdown_children()
+  cond = shutdown_owned_tasks()
   for t in known_tasks()
     state(t) ≠ DEAD && signal_shutdown(t)
   end

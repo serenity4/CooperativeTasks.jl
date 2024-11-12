@@ -7,41 +7,39 @@ using UUIDs: uuid4, UUID
 using Reexport
 using PrecompileTools
 using CompileTraces
-using ForwardMethods
 @reexport using .Threads: nthreads, threadid
 @reexport using ResultTypes: Result, unwrap, iserror, unwrap_error, @try
 
 uuid() = uuid4()
 
 include("messages.jl")
+include("communication.jl")
 include("task_state.jl")
 include("commands.jl")
 include("error.jl")
 include("ownership.jl")
 include("execution.jl")
-include("connection.jl")
 include("spawn.jl")
-include("taskgroup.jl")
 
 @setup_workload @compile_traces "precompilation_traces.jl"
 
 export
-  Message,
+  Message, manage_messages, manage_critical_messages,
+
   send, trysend,
-  manage_messages,
 
-  Cancel, cancel, shutdown, schedule_shutdown, shutdown_scheduled,
+  shutdown, cancel, schedule_shutdown, shutdown_scheduled,
 
-  ExecutionMode, SingleExecution, LoopExecution,
+  Command, execute, tryexecute,
+
+  Future, tryfetch,
+
+  own, task_owner, owned_tasks, shutdown_owned_tasks, monitor_owned_tasks,
+
   spawn, SpawnOptions, @spawn,
-  Command,
+  ExecutionMode, SingleExecution, LoopExecution,
 
-  own, task_owner, children_tasks, shutdown_children,
-
-  ExecutionError, PropagatedTaskException, TaskException, monitor_children,
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
-
-  call, execute, tryexecute, Future, tryfetch, reset_mpi_state, istasksuccessful,
-
-  TaskGroup
+  ExecutionError, PropagatedTaskException, TaskException,
+  istasksuccessful
 end

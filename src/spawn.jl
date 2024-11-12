@@ -75,7 +75,7 @@ function spawn(f, options::SpawnOptions)
   set_task_state(task, ALIVE)
 
   # List spawned task as child of the current task.
-  push!(children_tasks(), task)
+  push!(owned_tasks(), task)
 
   task.sticky = !options.allow_task_migration
   !isnothing(options.start_threadid) && ccall(:jl_set_task_tid, Cvoid, (Any, Cint), task, options.start_threadid - 1)

@@ -1,24 +1,4 @@
 """
-Status code used for communicating success, failures and possibly other intermediate return modes.
-"""
-@enum StatusCode::Int64 begin
-  SUCCESS = 0
-  TIMEOUT = 1
-  SHUTDOWN_RECEIVED = 2
-  FAILED = -1
-  RECEIVER_DEAD = -2
-end
-
-struct TaskException <: Exception
-  msg::String
-  code::StatusCode
-end
-
-TaskException(code::StatusCode) = TaskException("", code)
-
-Base.showerror(io::IO, e::TaskException) = print(io, e.code, ": ", e.msg)
-
-"""
     @check f(args...)
 
 Assign the expression to a variable named `_return_code`. Then, if the value is not a success code, return a [`TaskException`](@ref) holding the return code.

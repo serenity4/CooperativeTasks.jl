@@ -1,10 +1,10 @@
 using CooperativeTasks, Test
-using CooperativeTasks: children_tasks, Future
+using CooperativeTasks: owned_tasks, Future
 
 include("task_utils.jl")
 
 @testset "Commands" begin
-  reset_mpi_state()
+  reset()
 
   t = @spawn :looped nothing
   fut = execute(() -> 1 + 1, t)
@@ -52,7 +52,7 @@ include("task_utils.jl")
       Ping! (5)
       """
     @test !iserror(fetch(fut))
-    shutdown_children()
+    shutdown_owned_tasks()
   end
 
   @testset "Proper shutdown while fetching a future" begin

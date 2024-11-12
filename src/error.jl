@@ -39,63 +39,16 @@ function propagate_error(exc::ExecutionError)
   @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
 end
 
-function try_execute(f)
-  try
-    f()
-  catch exc
-    # Manage messages marked as critical which indicate e.g.
-    # a change of ownership or other information that can
-    # affect how the error is handled.
-    manage_critical_messages()
-    propagate_error(ExecutionError(exc, catch_backtrace()))
-    schedule_shutdown()
-  end
-end
+"""
+Check whether the task has successfully terminated execution.
 
-function monitor_children(period::Real = 0.001; allow_failures = false)
-  tasks = copy(children_tasks())
-  isempty(tasks) && error("No children tasks to monitor")
-  handlers = error_handlers()
-  err_handler = Base.Fix1(showerror, stdout)
-  for task in tasks
-    set!(handlers, task, err_handler)
-  end
-
-  interrupted = false
-  try
-    wait_timeout(Inf, period) do
-      try
-        manage_messages()
-        !allow_failures && any(state(task) == DEAD for task in tasks) && return true
-        shutdown_scheduled() && return true
-        all(istaskdone, tasks)
-      catch e
-        if isa(e, InterruptException)
-          interrupted = true
-        else
-          wait(shutdown(tasks))
-          rethrow()
-        end
-      end
-    end
-  catch e
-    if isa(e, InterruptException)
-      interrupted = true
-    else
-      wait(shutdown(tasks))
-      rethrow()
-    end
-  end
-  # Make sure no children outlives the monitoring parent unless explicitly interrupted (which indicates monitoring might be resumed later).
-  !interrupted && !all(istaskdone, tasks) && wait(shutdown(tasks))
-  all(istaskdone, tasks)
-end
-
-function istasksuccessful(task::Task)
+By default, an error will be logged if an exception was found; set `log = false` to prevent that.
+"""
+function istasksuccessful(task::Task; log::Bool = true)
   !istaskfailed(task) && istaskdone(task) && return true
   if istaskdone(task)
     if task._isexception
-      if task.result isa Exception
+      if log && task.result isa Exception
         @error "Task was not successful:" exception = (task.result::Exception, task.backtrace)
       end
       false

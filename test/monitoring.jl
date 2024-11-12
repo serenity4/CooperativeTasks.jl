@@ -5,7 +5,7 @@ using Dictionaries
 include("task_utils.jl")
 
 @testset "Monitoring" begin
-  reset_mpi_state()
+  reset()
 
   t1 = Ref{Task}()
   t2 = Ref{Task}()
@@ -16,7 +16,7 @@ include("task_utils.jl")
   t = @spawn begin
     t1[] = @spawn :looped nothing
     t2[] = @spawn :looped nothing
-    monitor_children(; allow_failures = true)
+    monitor_owned_tasks(; allow_failures = true)
   end
 
   sleep(0.2)
@@ -34,7 +34,7 @@ include("task_utils.jl")
   t = @spawn begin
     t1[] = @spawn :looped nothing
     t2[] = @spawn :looped nothing
-    monitor_children()
+    monitor_owned_tasks()
   end
 
   sleep(0.2)
@@ -50,7 +50,7 @@ include("task_utils.jl")
     t1[] = @spawn error("Oh no!")
     t2[] = @spawn :looped nothing
     sleep(0.2)
-    monitor_children()
+    monitor_owned_tasks()
   end)
 
   sleep(0.2)

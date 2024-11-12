@@ -7,7 +7,6 @@ const TLS_CONNECTIONS = tls_key(:mpi_connections)
 const TLS_TASK_STATES = tls_key(:mpi_task_states)
 const TLS_TASK_OWNER = tls_key(:mpi_task_owner)
 const TLS_UNPROCESSED_MESSAGES = tls_key(:mpi_unprocessed_messages)
-const TLS_ACKS = tls_key(:mpi_acks)
 const TLS_CHILDREN_TASKS = tls_key(:mpi_children_tasks)
 const TLS_ERROR_HANDLERS = tls_key(:mpi_error_handlers)
 const TLS_FUTURES = tls_key(:mpi_futures)
@@ -46,8 +45,6 @@ channel() = get!(task_local_storage(), TLS_CHANNEL, Channel{Message}(Inf))::Chan
 
 pending_messages() = get!(PendingMessages, task_local_storage(), TLS_PENDING_MESSAGES)::PendingMessages
 
-connections() = get!(Dictionary{Task,Connection}, task_local_storage(), TLS_CONNECTIONS)::Dictionary{Task,Connection}
-
 # Prefer using `state(::Task)` rather than iterating values.
 task_states() = get!(Dictionary{Task,TaskState}, task_local_storage(), TLS_TASK_STATES)::Dictionary{Task,TaskState}
 known_tasks() = keys(task_states())
@@ -73,11 +70,7 @@ end
 
 unprocessed_messages() = get!(Vector{Message}, task_local_storage(), TLS_UNPROCESSED_MESSAGES)::Vector{Message}
 
-acks() = get!(Dictionary{UUID,Bool}, task_local_storage(), TLS_ACKS)::Dictionary{UUID,Bool}
-
-ack_received(uuid::UUID) = get(acks(), uuid, false)
-
-children_tasks() = get!(Vector{Task}, task_local_storage(), TLS_CHILDREN_TASKS)::Vector{Task}
+owned_tasks() = get!(Vector{Task}, task_local_storage(), TLS_CHILDREN_TASKS)::Vector{Task}
 
 error_handlers() = get!(Dictionary{Task,Any}, task_local_storage(), TLS_ERROR_HANDLERS)::Dictionary{Task,Any}
 
@@ -91,11 +84,9 @@ end
 
 function reset_task_state()
   empty!(pending_messages())
-  empty!(connections())
   empty!(task_states())
   empty!(unprocessed_messages())
-  empty!(acks())
-  empty!(children_tasks())
+  empty!(owned_tasks())
   empty!(error_handlers())
   empty!(futures())
   task_local_storage(TLS_TASK_OWNER, nothing)
@@ -103,8 +94,8 @@ function reset_task_state()
   nothing
 end
 
-function reset_mpi_state()
-  wait(shutdown_children())
+function reset()
+  wait(shutdown_owned_tasks())
   manage_messages()
   reset_task_state()
 end

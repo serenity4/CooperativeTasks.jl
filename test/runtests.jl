@@ -4,8 +4,6 @@ using Test, SafeTestsets
 testfile(filename) = joinpath(@__DIR__, filename)
 
 TEST_FILES = [
-  # "bijection.jl",
-  # "property_graph.jl",
   "spawn.jl",
   "execution.jl",
   "commands.jl",
