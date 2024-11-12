@@ -42,7 +42,7 @@ export
 
   own, task_owner, children_tasks, shutdown_children,
 
-  TaskError, PropagatedTaskError, ConcurrencyError, monitor_children,
+  ExecutionError, PropagatedTaskException, TaskException, monitor_children,
   SUCCESS, FAILED, RECEIVER_DEAD, SHUTDOWN_RECEIVED, TIMEOUT,
 
   call, execute, tryexecute, Future, tryfetch, reset_mpi_state, istasksuccessful,

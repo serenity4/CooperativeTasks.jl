@@ -1,31 +1,31 @@
 const Backtrace = Vector{Union{Ptr{Nothing}, Base.InterpreterIP}}
 
-struct TaskError <: Exception
+struct ExecutionError <: Exception
   task::Task
   exc::Exception
   bt::Backtrace
-  TaskError(exc::Exception, bt::Backtrace) = new(current_task(), exc, bt)
+  ExecutionError(exc::Exception, bt::Backtrace) = new(current_task(), exc, bt)
 end
 
-function Base.showerror(io::IO, exc::TaskError)
-  exc.exc isa TaskError && return showerror(io, exc.exc)
-  print(io, "TaskError: Child task ")
+function Base.showerror(io::IO, exc::ExecutionError)
+  exc.exc isa ExecutionError && return showerror(io, exc.exc)
+  print(io, "ExecutionError: Child task ")
   printstyled(io, exc.task; color = :yellow)
   println(io, " failed:\n")
   showerror(io, exc.exc, exc.bt)
   println(io)
 end
 
-struct PropagatedTaskError <: Exception
-  exc::TaskError
+struct PropagatedTaskException <: Exception
+  exc::ExecutionError
 end
 
-function Base.showerror(io::IO, exc::PropagatedTaskError)
-  print(io, "Propagated")
+function Base.showerror(io::IO, exc::PropagatedTaskException)
+  print(io, "Propagated ")
   showerror(io, exc.exc)
 end
 
-function handle_error(exc::PropagatedTaskError)
+function handle_error(exc::PropagatedTaskException)
   set_task_state(exc.exc.task, DEAD)
   f = error_handler(exc.exc.task)
   f(exc)
@@ -33,12 +33,10 @@ end
 
 error_handler(child::Task) = error_handlers()[child]
 
-function propagate_error(exc::TaskError)
-  if !has_owner()
-    # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
-    return @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
-  end
-  trysend(task_owner(), Command(handle_error, PropagatedTaskError(exc)))
+function propagate_error(exc::ExecutionError)
+  has_owner() && return trysend(task_owner(), Command(handle_error, PropagatedTaskException(exc)))
+  # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
+  @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
 end
 
 function try_execute(f)
@@ -49,9 +47,8 @@ function try_execute(f)
     # a change of ownership or other information that can
     # affect how the error is handled.
     manage_critical_messages()
-    propagate_error(TaskError(exc, catch_backtrace()))
+    propagate_error(ExecutionError(exc, catch_backtrace()))
     schedule_shutdown()
-    isa(exc, InterruptException)
   end
 end
 

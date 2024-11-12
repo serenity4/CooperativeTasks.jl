@@ -54,7 +54,7 @@ include("task_utils.jl")
   end)
 
   sleep(0.2)
-  @test startswith(captured, "PropagatedTaskError")
+  @test startswith(captured, "Propagated ExecutionError")
   @test istasksuccessful(t)
   @test isempty(Base.get_task_tls(t)[TLS_CHILDREN_TASKS])
 end;

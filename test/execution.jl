@@ -28,7 +28,7 @@ include("task_utils.jl")
     t = @spawn exec error("Nooo!")
     @test t in children_tasks()
     sleep(0.1)
-    @test_throws PropagatedTaskError manage_messages() isa Any
+    @test_throws PropagatedTaskException manage_messages() isa Any
     @test istasksuccessful(t)
 
     # Cancellation.

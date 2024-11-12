@@ -17,9 +17,9 @@ include("task_utils.jl")
   @test fetch(fut; timeout = 1) == 2
   fut = execute(() -> error("Oh no!"), t; continuation = nothing)
   err = unwrap_error(tryfetch(fut; timeout = 1))
-  @test err isa TaskError && err.exc == ErrorException("Oh no!")
+  @test err isa ExecutionError && err.exc == ErrorException("Oh no!")
   @test wait(shutdown(t))
-  @test unwrap_error(tryexecute(Returns(nothing), t)) == ConcurrencyError(RECEIVER_DEAD)
+  @test unwrap_error(tryexecute(Returns(nothing), t)) == TaskException(RECEIVER_DEAD)
 
   @testset "Ping-pong example" begin
     function pingpong(i)

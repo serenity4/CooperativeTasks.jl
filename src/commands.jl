@@ -9,19 +9,19 @@ Status code used for communicating success, failures and possibly other intermed
   RECEIVER_DEAD = -2
 end
 
-struct ConcurrencyError <: Exception
+struct TaskException <: Exception
   msg::String
   code::StatusCode
 end
 
-ConcurrencyError(code::StatusCode) = ConcurrencyError("", code)
+TaskException(code::StatusCode) = TaskException("", code)
 
-Base.showerror(io::IO, e::ConcurrencyError) = print(io, e.code, ": ", e.msg)
+Base.showerror(io::IO, e::TaskException) = print(io, e.code, ": ", e.msg)
 
 """
     @check f(args...)
 
-Assign the expression to a variable named `_return_code`. Then, if the value is not a success code, return a [`ConcurrencyError`](@ref) holding the return code.
+Assign the expression to a variable named `_return_code`. Then, if the value is not a success code, return a [`TaskException`](@ref) holding the return code.
 
 """
 macro check(expr)
@@ -33,7 +33,7 @@ macro check(expr, msg)
     quote
         _return_code = $(esc(expr))
         if Int(_return_code) < 0
-            return ConcurrencyError($msg, _return_code)
+            return TaskException($msg, _return_code)
         end
         _return_code
     end
@@ -52,7 +52,7 @@ struct Command
   Command(f, args...; continuation = nothing, kwargs...) = new(f, args, kwargs, continuation)
 end
 
-function trysend(task::Task, command::Message{Command})::Result{Future,ConcurrencyError}
+function trysend(task::Task, command::Message{Command})::Result{Future,TaskException}
   !isnothing(command.payload.continuation) && insert!(pending_messages(), command.uuid, command)
   @try(Base.@invoke trysend(task::Task, command::Message))
   Future(command.uuid, task)
@@ -70,12 +70,12 @@ function process_message(command::Message{Command})
   trysend(command.from, Message(ret, command.uuid; command.critical))
 end
 
-function execute(command::Command)::Result{Any,Union{ConcurrencyError, TaskError}}
+function execute(command::Command)::Result{Any,Union{TaskException, ExecutionError}}
   try
     Base.invokelatest(command.f, command.args...; command.kwargs...)
   catch e
-    isa(e, PropagatedTaskError) && rethrow()
-    TaskError(e, catch_backtrace())
+    isa(e, PropagatedTaskException) && rethrow()
+    ExecutionError(e, catch_backtrace())
   end
 end
 
@@ -148,7 +148,7 @@ function poll(cond::Condition)
   cond.test() ? (cond.passed = true) : false
 end
 
-function tryfetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{ConcurrencyError,TaskError}}
+function tryfetch(future::Future; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{TaskException,ExecutionError}}
   isdefined(future.value, 1) || return compute(future, timeout, sleep_time)
   future.value[]
 end
@@ -156,11 +156,11 @@ end
 tryfetch(ret::Result{Future}; timeout::Real = Inf, sleep_time::Real = 0) = tryfetch(unwrap(ret); timeout, sleep_time)
 Base.fetch(ret::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0) = unwrap(tryfetch(ret; timeout, sleep_time))
 
-function compute(future::Future, timeout, sleep_time)::Result{Any,Union{ConcurrencyError,TaskError}}
+function compute(future::Future, timeout, sleep_time)::Result{Any,Union{TaskException,ExecutionError}}
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")
   d = futures()
   success = wait(Condition(() -> haskey(d, future.uuid)); timeout, sleep_time)
-  !success && return ConcurrencyError(shutdown_scheduled() ? SHUTDOWN_RECEIVED : TIMEOUT)
+  !success && return TaskException(shutdown_scheduled() ? SHUTDOWN_RECEIVED : TIMEOUT)
   val = d[future.uuid]
   delete!(d, future.uuid)
   future.value[] = val
