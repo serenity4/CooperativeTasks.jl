@@ -13,9 +13,6 @@ using ForwardMethods
 
 uuid() = uuid4()
 
-# include("lib/bijection.jl")
-# include("lib/property_graph.jl")
-
 include("messages.jl")
 include("task_state.jl")
 include("commands.jl")
@@ -23,7 +20,6 @@ include("error.jl")
 include("ownership.jl")
 include("execution.jl")
 include("connection.jl")
-# include("ack.jl")
 include("spawn.jl")
 include("taskgroup.jl")
 
