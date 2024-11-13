@@ -16,6 +16,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 CompileTraces = "1"
 DocStringExtensions = "0.9.3"
 PrecompileTools = "1"
+ResultTypes = "3"
 julia = "1.8"
 
 [extras]
