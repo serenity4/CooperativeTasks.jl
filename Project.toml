@@ -17,6 +17,7 @@ CompileTraces = "1"
 Dictionaries = "0.4"
 DocStringExtensions = "0.9.3"
 PrecompileTools = "1"
+Reexport = "1"
 ResultTypes = "3"
 julia = "1.8"
 
