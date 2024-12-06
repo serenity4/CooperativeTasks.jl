@@ -51,7 +51,7 @@ function schedule_shutdown()
   task_local_storage(TLS_SHUTDOWN_SCHEDULED, true)
 end
 
-channel() = get!(task_local_storage(), TLS_CHANNEL, Channel{Message}(Inf))::Channel{Message}
+channel() = get!(() -> Channel{Message}(Inf), task_local_storage(), TLS_CHANNEL)::Channel{Message}
 
 pending_messages() = get!(PendingMessages, task_local_storage(), TLS_PENDING_MESSAGES)::PendingMessages
 
