@@ -78,6 +78,8 @@ function state(task::Task)
   end
 end
 
+isrunning(task::Task) = in(state(task), (ALIVE, UNRESPONSIVE))
+
 unprocessed_messages() = get!(Vector{Message}, task_local_storage(), TLS_UNPROCESSED_MESSAGES)::Vector{Message}
 
 owned_tasks() = get!(Vector{Task}, task_local_storage(), TLS_CHILDREN_TASKS)::Vector{Task}

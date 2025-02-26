@@ -165,7 +165,11 @@ Base.fetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time
 function compute(future::Future, timeout, sleep_time)::Result{Any,Union{TaskException,ExecutionError}}
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")
   d = futures()
-  success = wait(Condition(() -> haskey(d, future.uuid)); timeout, sleep_time)
+  success = wait(Condition() do
+    haskey(d, future.uuid) && return true
+    isrunning(future.to) || return TaskException(RECEIVER_DEAD)
+    false
+  end; timeout, sleep_time)
   !success && return TaskException(shutdown_scheduled() ? SHUTDOWN_RECEIVED : TIMEOUT)
   val = d[future.uuid]
   delete!(d, future.uuid)
