@@ -32,7 +32,7 @@ end
 function manage_critical_messages()
   read_messages()
   unprocessed = unprocessed_messages()
-  isempty(unprocessed) && return
+  any(m -> m.critical, unprocessed) || return
   mask = findall(m -> m.critical, unprocessed)
   processed = Int[]
   try
