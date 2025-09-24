@@ -9,6 +9,7 @@ end
 
 function Base.showerror(io::IO, exc::ExecutionError)
   exc.exc isa ExecutionError && return showerror(io, exc.exc)
+  !isa(exc.exc, PropagatedTaskException) && (io = IOContext(io, :register_line_infos => true))
   print(io, "ExecutionError: Child task ")
   printstyled(io, exc.task; color = :yellow)
   println(io, " failed:\n")

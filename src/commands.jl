@@ -55,7 +55,7 @@ function execute(command::Command)::Result{Any,Union{TaskException, ExecutionErr
     Base.invokelatest(command.f, command.args...; command.kwargs...)
   catch e
     isa(e, PropagatedTaskException) && rethrow()
-    ExecutionError(e, catch_backtrace())
+    return ExecutionError(e, catch_backtrace())
   end
 end
 

@@ -43,7 +43,10 @@ function monitor_owned_tasks(period::Real = 0.001; allow_failures = false)
   tasks = copy(owned_tasks())
   isempty(tasks) && error("No children tasks to monitor")
   handlers = error_handlers()
-  err_handler = Base.Fix1(showerror, stdout)
+  err_handler = function (exc::Exception)
+    io = IOContext(stdout, :register_line_infos => false)
+    showerror(io, exc)
+  end
   for task in tasks
     set!(handlers, task, err_handler)
   end

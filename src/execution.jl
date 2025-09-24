@@ -76,6 +76,7 @@ function (exec::LoopExecution)(f = Returns(nothing))
       t0 = time()
 
       try_execute(f)
+      shutdown_scheduled() && @goto out
       try_execute(manage_messages)
       shutdown_scheduled() && @goto out
 
