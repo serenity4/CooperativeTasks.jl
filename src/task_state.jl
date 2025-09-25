@@ -69,13 +69,9 @@ end
 
 function state(task::Task)
   st = get(task_states(), task, nothing)
-  if isnothing(st)
-    set_task_state(task, istaskdone(task) ? DEAD : ALIVE)
-  elseif st == ALIVE && istaskdone(task)
-    set_task_state(task, DEAD)
-  else
-    st
-  end
+  st === nothing && return set_task_state(task, ifelse(istaskdone(task), DEAD, ALIVE))
+  st === ALIVE && istaskdone(task) && return set_task_state(task, DEAD)
+  return st
 end
 
 isrunning(task::Task) = in(state(task), (ALIVE, UNRESPONSIVE))
