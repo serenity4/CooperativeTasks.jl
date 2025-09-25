@@ -1,7 +1,7 @@
 const Backtrace = Vector{Union{Ptr{Nothing}, Base.InterpreterIP}}
 
 struct ExecutionError <: Exception
-  task::Task
+  task::Task # task on which the error originates
   exc::Exception
   bt::Backtrace
   ExecutionError(exc::Exception, bt::Backtrace) = new(current_task(), exc, bt)
@@ -18,26 +18,42 @@ function Base.showerror(io::IO, exc::ExecutionError)
 end
 
 struct PropagatedTaskException <: Exception
-  exc::ExecutionError
+  from::Union{Task,Vector{Task}}
+  exc::Exception
+  function PropagatedTaskException(exc::Exception)
+    if isa(exc, PropagatedTaskException)
+      from = @set exc.from = [exc.from; current_task()]
+      return new(from, exc.exc)
+    end
+    return new(current_task(), exc)
+  end
 end
 
+task_that_threw_exception(exc::PropagatedTaskException) = isa(exc.from, Task) ? exc.from : first(exc.from)
+
 function Base.showerror(io::IO, exc::PropagatedTaskException)
-  print(io, "Propagated ")
+  tasks = isa(exc.from, Task) ? [exc.from] : exc.from
+  print(io, "Propagated exception from $(join(tasks, " -> ")):\n")
   showerror(io, exc.exc)
 end
 
 function handle_error(exc::PropagatedTaskException)
-  set_task_state(exc.exc.task, DEAD)
-  f = error_handler(exc.exc.task)
+  from = task_that_threw_exception(exc)
+  set_task_state(from, DEAD)
+  f = error_handler(from)
   f(exc)
 end
 
 error_handler(child::Task) = error_handlers()[child]
 
-function propagate_error(exc::ExecutionError)
-  has_owner() && return trysend(task_owner(), Command(handle_error, PropagatedTaskException(exc)))
-  # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
-  @error "Task failed and found no parent to propagate the error to:" exception = (exc.exc, exc.bt)
+function propagate_error(exc::Exception)
+  if !has_owner()
+    # There's no way to rethrow an exception to the main thread, so just log to stderr and hope that someone sees the message.
+    return @error "Task failed and found no parent to propagate the error to:" exception = exc
+  end
+  payload = PropagatedTaskException(exc)
+  message = Message(payload; critical = true)
+  trysend(task_owner(), message)
 end
 
 """

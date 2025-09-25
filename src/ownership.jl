@@ -59,24 +59,17 @@ function monitor_owned_tasks(period::Real = 0.001; allow_failures = false)
         !allow_failures && any(state(task) == DEAD for task in tasks) && return true
         shutdown_scheduled() && return true
         all(istaskdone, tasks)
-      catch e
-        if isa(e, InterruptException)
-          interrupted = true
-        else
-          wait(shutdown(tasks))
-          rethrow()
-        end
+      catch exc
+        !isa(exc, InterruptException) && rethrow()
+        interrupted = true
+        return true
       end
     end
-  catch e
-    if isa(e, InterruptException)
-      interrupted = true
-    else
-      wait(shutdown(tasks))
-      rethrow()
-    end
+  catch exc
+    !isa(exc, InterruptException) && rethrow()
+    interrupted = true
   end
   # Make sure no children outlives the monitoring parent unless explicitly interrupted (which indicates monitoring might be resumed later).
   !interrupted && !all(istaskdone, tasks) && wait(shutdown(tasks))
-  all(istaskdone, tasks)
+  return all(istaskdone, tasks)
 end

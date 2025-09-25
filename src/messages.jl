@@ -37,8 +37,8 @@ function manage_critical_messages()
   processed = Int[]
   try
     for i in mask
-      process_message(unprocessed[i])
       push!(processed, i)
+      process_message(unprocessed[i])
     end
   finally
     deleteat!(unprocessed, processed)
@@ -57,5 +57,5 @@ function read_messages()
     push!(to_process, m)
   end
 
-  to_process
+  return to_process
 end

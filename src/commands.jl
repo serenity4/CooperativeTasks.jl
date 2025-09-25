@@ -45,17 +45,20 @@ end
 send(args...; kwargs...) = unwrap(trysend(args...; kwargs...))
 execute(args...; kwargs...) = unwrap(tryexecute(args...; kwargs...))
 
-function process_message(command::Message{Command})
-  ret = ReturnedValue(execute(command.payload))
-  trysend(command.from, Message(ret, command.uuid; command.critical))
+function process_command(message::Message{Command})
+  value = execute(message.payload)
+  payload = ReturnedValue(value)
+  trysend(message.from, Message(payload, message.uuid; message.critical))
 end
 
-function execute(command::Command)::Result{Any,Union{TaskException, ExecutionError}}
+const ExecutionResult = Result{Any,Union{TaskException,PropagatedTaskException,ExecutionError}}
+
+function execute(command::Command)::ExecutionResult
   try
     Base.invokelatest(command.f, command.args...; command.kwargs...)
-  catch e
-    isa(e, PropagatedTaskException) && rethrow()
-    return ExecutionError(e, catch_backtrace())
+  catch exc
+    isa(exc, PropagatedTaskException) && return exc
+    return ExecutionError(exc, catch_backtrace())
   end
 end
 
@@ -63,7 +66,7 @@ struct ReturnedValue
   value::Any
 end
 
-function process_message(m::Message{ReturnedValue})
+function process_returned_value(m::Message{ReturnedValue})
   d = futures()
   if state(m.from) == DEAD
     @debug "Received a command from a dead task; it will not be processed"
@@ -145,7 +148,7 @@ If an error occurs, or `timeout` seconds have passed without result, an exceptio
 
 This performs the same as [`fetch`](@ref), but does not throw and wraps the returned value or exception into a `Result`.
 """
-function tryfetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0)::Result{Any,Union{TaskException,ExecutionError}}
+function tryfetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0)::ExecutionResult
   future = unwrap(future)
   isdefined(future.value, 1) || return compute(future, timeout, sleep_time)
   future.value[]
@@ -162,7 +165,7 @@ If an error occurs, or `timeout` seconds have passed without result, an exceptio
 """
 Base.fetch(future::Union{Future,Result{Future}}; timeout::Real = Inf, sleep_time::Real = 0) = unwrap(tryfetch(future; timeout, sleep_time))
 
-function compute(future::Future, timeout, sleep_time)::Result{Any,Union{TaskException,ExecutionError}}
+function compute(future::Future, timeout, sleep_time)::ExecutionResult
   current_task() === future.to || error("A future must be waited on from the thread that expects the result.")
   d = futures()
   success = wait(Condition() do

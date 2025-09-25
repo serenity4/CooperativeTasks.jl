@@ -1,5 +1,6 @@
 module CooperativeTasks
 
+using Accessors
 using DocStringExtensions
 using CompileTraces
 using Dictionaries
@@ -36,11 +37,15 @@ uuid() = uuid4()
 include("messages.jl")
 include("communication.jl")
 include("task_state.jl")
-include("commands.jl")
 include("error.jl")
+include("commands.jl")
 include("ownership.jl")
 include("execution.jl")
 include("spawn.jl")
+
+process_message(message::Message{ReturnedValue}) = process_returned_value(message)
+process_message(message::Message{Command}) = process_command(message)
+process_message(message::Message{PropagatedTaskException}) = handle_error(message.payload)
 
 @compile_workload @compile_traces "precompilation_traces.jl"
 
